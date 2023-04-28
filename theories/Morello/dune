@@ -1,0 +1,5 @@
+(coq.theory
+ (name Morello)
+ (modules CapFns CapFnsTypes Morello MorelloTests)
+ (theories Common)
+)
