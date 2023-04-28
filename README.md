@@ -17,6 +17,7 @@ Make sure to run `eval $(opam env --switch=coq-cheri-capabilities)` (or whicheve
 3. With an opam switch created, you must add the Coq and the Iris repositories, and pin the coq-sail package, as follows: 
 ```
 opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
+opam pin -n coq-struct-tact https://github.com/uwplse/StructTact.git
 opam repo add --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam pin -n coq-sail https://github.com/rems-project/coq-sail.git
 ```
