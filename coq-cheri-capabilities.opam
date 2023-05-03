@@ -6,7 +6,7 @@ description: "A longer description"
 maintainer: ["Ricardo Almeida <ricardo.almeida@ed.ac.uk>"]
 authors: ["Ricardo Almeida" "Vadim Zaliva"]
 license: "BSD-3-clause"
-tags: ["coq" "cheri" "capabilities" "morello" "arm"]
+tags: ["logpath:CheriCaps"]
 homepage: "https://github.com/rems-project/coq-cheri-capabilities"
 doc: "https://url/to/documentation"
 bug-reports: "https://github.com/rems-project/coq-cheri-capabilities/issues"
