@@ -1,4 +1,3 @@
-
 Require Import Morello.
 Require Import Coq.Arith.PeanoNat.
 Require Import Coq.Lists.List.
@@ -35,8 +34,8 @@ Module test_cap_getters_and_setters.
 
   Import Capability.
 
-  Definition c1:Capability.t := cap_t_to_t (mword_to_bv (concat_vec (Ones 19) (Zeros 110))) Default_CapGhostState. (* A valid universal-permission cap = 1^{19}0^{110} *)
-  Definition c2:Capability.t := cap_t_to_t (mword_to_bv (concat_vec (Ones 3) (Zeros 126))) Default_CapGhostState. (* A valid cap with Load and Store perms *)
+  Definition c1:Capability.t := mword_to_bv (concat_vec (Ones 19) (Zeros 110)). (* A valid universal-permission cap = 1^{19}0^{110} *)
+  Definition c2:Capability.t := mword_to_bv (concat_vec (Ones 3) (Zeros 126)). (* A valid cap with Load and Store perms *)
   Definition c3:Capability.t := Capability.of_Z 0x1fc000000333711170000000012342222. (* The default cap on https://www.morello-project.org/capinfo *)
   Definition c4:Capability.t := Capability.of_Z 0x1fc000000399700070000000012342222. (* The bounds in this cap subsume those of c3 *)
   Definition c5:Capability.t := Capability.of_Z 0x1fb000000377700070011111111113333. (* Cap breakdown: https://www.morello-project.org/capinfo?c=0x1%3Afb00000037770007%3A0011111111113333 *)

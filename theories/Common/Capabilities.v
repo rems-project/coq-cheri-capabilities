@@ -86,15 +86,18 @@ Module Type Permission.
   Parameter eqb: t -> t -> bool.
 End Permission.
 
+
 Module Type OTYPE.
   Parameter t:Set.
   Parameter eqb: t -> t -> bool.
 End OTYPE.
 
+
 Module Type CAP_SEAL_T.
   Parameter t:Set.
   Parameter eqb: t -> t -> bool.
 End CAP_SEAL_T.
+
 
 Module Type PTRADDR_INTERVAL (V:PTRADDR).
   Parameter Inline t: Set.
@@ -112,20 +115,6 @@ Module Type FLAGS.
 End FLAGS.
 
 
-Record CapGhostState :=
-  {
-    tag_unspecified : bool;
-    bounds_unspecified : bool
-  }.
-
-Definition ghost_state_eqb (a b:CapGhostState) : bool :=
-  andb
-    (eqb a.(tag_unspecified) b.(tag_unspecified))
-    (eqb a.(bounds_unspecified) b.(bounds_unspecified)).
-
-Definition Default_CapGhostState : CapGhostState
-  := {| tag_unspecified := false; bounds_unspecified := false |}.
-
 Module Type Capability
   (V:PTRADDR)
   (F:FLAGS)
@@ -141,14 +130,6 @@ Module Type Capability
   Parameter min_ptraddr : V.t.
   Parameter max_ptraddr : V.t.
   Parameter sizeof_ptraddr: nat.
-
-  (** the number of user-defined flags *)
-  
-  (** ghost state management **)
-
-  Parameter get_ghost_state: t -> CapGhostState.
-
-  Parameter set_ghost_state: t -> CapGhostState -> t.
 
   (** access to various cap fields **)
 
@@ -281,7 +262,7 @@ Module Type Capability
    *)
   Parameter cap_set_flags: t -> F.t -> t. 
 
-  (* --- Controlled non-monotonic manipulation --  *)
+  (* --- Controlled non-monotonic manipulation ---  *)
 
   (** Unsealing a capability using an unsealing operation.
         - CUnseal in RISCV

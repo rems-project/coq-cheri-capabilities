@@ -480,31 +480,11 @@ End Bounds.
 
 Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bounds) (Permissions).
   Definition len:N := 129.
-  Definition cap_t := bv len.
-
-  Inductive morello_cap_t :=
-  {
-    cap : cap_t;
-    ghost_state: CapGhostState
-  }.
-	
-	Definition t := morello_cap_t.
-
-  Definition with_ghost_state gs (r : t) := {| cap := r.(cap); ghost_state := gs |}.
-
-  (** ghost state management **)
-  Definition get_ghost_state (c:t) := c.(ghost_state).
-  Definition set_ghost_state (c:t) gs := with_ghost_state gs c.
-  Definition with_cap (c:t) (cap_:cap_t) : t :=
-    {| cap := cap_; ghost_state := get_ghost_state c |}.
-
-  Definition cap_t_to_t (c:cap_t) (gs:CapGhostState) : t := 
-    {| cap := c; ghost_state := gs |}.
-
-  Definition cap_to_mword (c:t) : (mword (Z.of_N len)) :=
-    bv_to_mword c.(cap).    
+  Definition t := bv len.
   
-  Definition of_Z (z:Z) : t := cap_t_to_t (Z_to_bv len z) Default_CapGhostState.
+  Definition cap_to_mword (c:t) : (mword (Z.of_N len)) := bv_to_mword c.    
+  
+  Definition of_Z (z:Z) : t := Z_to_bv len z.
      
   Definition cap_SEAL_TYPE_UNSEALED : ObjType.t := ObjType.of_Z 0.
   Definition cap_SEAL_TYPE_RB : ObjType.t := ObjType.of_Z 1. 
@@ -516,33 +496,29 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition min_ptraddr := Z_to_bv (N.of_nat (sizeof_ptraddr*8)) 0.  
   Definition max_ptraddr := Z_to_bv (N.of_nat (sizeof_ptraddr*8)) (Z.sub (bv_modulus (N.of_nat (sizeof_ptraddr*8))) 1).
 
-  Definition cap_c0 (u:unit) : t := 
-    cap_t_to_t (mword_to_bv (CapNull u)) Default_CapGhostState.
+  Definition cap_c0 (u:unit) : t := mword_to_bv (CapNull u).
 
-  Definition cap_cU (u:unit) : t := 
-    cap_t_to_t (mword_to_bv (concat_vec (Ones 19) (Zeros 110))) Default_CapGhostState.
+  Definition cap_cU (u:unit) : t := mword_to_bv (concat_vec (Ones 19) (Zeros 110)).
 
   Definition bound_null (u:unit) : bv 65 := Z_to_bv 65 0.
 
-  Definition cap_get_value (c:t) : AddressValue.t := 
-    mword_to_bv (CapGetValue (bv_to_mword c.(cap))).
+  Definition cap_get_value (c:t) : AddressValue.t := mword_to_bv (CapGetValue (bv_to_mword c)).
   
-  Definition cap_get_obj_type (c:t) : ObjType.t := 
-    mword_to_bv (CapGetObjectType (bv_to_mword c.(cap))).
+  Definition cap_get_obj_type (c:t) : ObjType.t := mword_to_bv (CapGetObjectType (bv_to_mword c)).
 
   Definition cap_get_bounds_ (c:t) : Bounds.t * bool :=
-    let '(base_mw, limit_mw, isExponentValid) := CapGetBounds (bv_to_mword c.(cap)) in
+    let '(base_mw, limit_mw, isExponentValid) := CapGetBounds (bv_to_mword c) in
     let base_bv := mword_to_bv base_mw in
     let limit_bv := mword_to_bv limit_mw in 
     ((base_bv, limit_bv), isExponentValid).
   
   Definition cap_get_bounds (cap:t) : Bounds.t :=
-      let '(base_mw, limit_mw, isExponentValid) := 
-        cap_get_bounds_ cap in
-      (base_mw, limit_mw).
+    let '(base_mw, limit_mw, isExponentValid) := 
+      cap_get_bounds_ cap in
+    (base_mw, limit_mw).
   
   Definition cap_get_offset (c:t) : Z :=
-    (mword_to_bv (CapGetOffset (bv_to_mword c.(cap)))).(bv_unsigned).
+    (mword_to_bv (CapGetOffset (bv_to_mword c))).(bv_unsigned).
         
   Definition cap_get_seal (cap:t) : SealType.t := 
     let ot:ObjType.t := cap_get_obj_type cap in
@@ -554,41 +530,37 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
     
   (* The flags are the top byte of the value. *)
   Program Definition cap_get_flags (c:t) : Flags.t := 
-    let m : (mword _) := subrange_vec_dec (bv_to_mword c.(cap)) CAP_VALUE_HI_BIT CAP_FLAGS_LO_BIT in
+    let m : (mword _) := subrange_vec_dec (bv_to_mword c) CAP_VALUE_HI_BIT CAP_FLAGS_LO_BIT in
     let l : (list bool) := (mword_to_list_bool m) in
     exist _ l _.
   Next Obligation. reflexivity. Defined.  
 
-  Definition cap_get_perms (c:t) : Permissions.t := 
-    mword_to_bv (CapGetPermissions (bv_to_mword c.(cap))).
+  Definition cap_get_perms (c:t) : Permissions.t := mword_to_bv (CapGetPermissions (bv_to_mword c)).
 
-  Definition cap_is_sealed (c:t) : bool :=
-    CapIsSealed (bv_to_mword c.(cap)).
+  Definition cap_is_sealed (c:t) : bool := CapIsSealed (bv_to_mword c).
   
-  Definition cap_invalidate (c:t) : t := 
-    with_cap c (mword_to_bv (CapWithTagClear (bv_to_mword c.(cap)))).
+  Definition cap_invalidate (c:t) : t := mword_to_bv (CapWithTagClear (bv_to_mword c)).
 
   Definition cap_set_value (c:t) (value:AddressValue.t) : t :=
-    let new_cap := 
-      with_cap c (mword_to_bv (CapSetValue (bv_to_mword c.(cap)) (bv_to_mword value))) in 
+    let new_cap := (mword_to_bv (CapSetValue (bv_to_mword c) (bv_to_mword value))) in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
   
   Definition cap_set_flags (c:t) (f: Flags.t) : t :=
     let new_cap :=
       let flags_m : (mword (Z.of_nat Flags.length)) := of_bools (List.rev (proj1_sig f)) in
       let flags' : (mword 64) := concat_vec flags_m (Zeros (64 - (Z.of_nat Flags.length))) in 
-      with_cap c (mword_to_bv (CapSetFlags (bv_to_mword c.(cap)) flags'))      in 
+       (mword_to_bv (CapSetFlags (bv_to_mword c) flags')) in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
   
   Definition cap_set_objtype (c:t) (ot:ObjType.t) : t :=
-    with_cap c (mword_to_bv (CapSetObjectType (bv_to_mword c.(cap)) (zero_extend (bv_to_mword ot) 64))).
+    mword_to_bv (CapSetObjectType (bv_to_mword c) (zero_extend (bv_to_mword ot) 64)).
 
   (* [perms] must contain [1] for permissions to be kept and [0] for those to be cleared *)
   Definition cap_narrow_perms (c:t) (perms:Permissions.t) : t :=
     let perms_mw : (mword (Z.of_N Permissions.len)) := bv_to_mword perms in 
     let mask : (mword 64) := zero_extend perms_mw 64 in
     let mask_inv : (mword 64) := invert_bits mask in 
-    let new_cap := with_cap c (mword_to_bv (CapClearPerms (bv_to_mword c.(cap)) mask_inv)) in 
+    let new_cap :=  (mword_to_bv (CapClearPerms (bv_to_mword c) mask_inv)) in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
 
   Definition cap_clear_global_perm (cap:t) : t := 
@@ -602,8 +574,7 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let new_cap := cap_set_value c base_as_val in 
     let req_len : (mword (Z.of_N Bounds.bound_len)) := 
       mword_of_int (Z.sub (bv_to_Z_unsigned limit) (bv_to_Z_unsigned base)) in 
-    let new_cap := 
-      with_cap new_cap (mword_to_bv (CapSetBounds (bv_to_mword new_cap.(cap)) req_len exact)) in 
+    let new_cap := mword_to_bv (CapSetBounds (bv_to_mword new_cap) req_len exact) in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
 
   Definition cap_narrow_bounds (cap : t) (bounds : Bounds.t) : t :=
@@ -612,18 +583,17 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition cap_narrow_bounds_exact (cap : t) (bounds : Bounds.t) : t :=
     cap_set_bounds cap bounds true.
 
-  Definition cap_is_valid (c:t) : bool := Bool.eqb (CapIsTagClear (bv_to_mword c.(cap))) false.
+  Definition cap_is_valid (c:t) : bool := Bool.eqb (CapIsTagClear (bv_to_mword c)) false.
 
   Definition cap_is_invalid (cap:t) : bool := negb (cap_is_valid cap).
     
   Definition cap_is_unsealed (cap:t) : bool := negb (cap_is_sealed cap).
   
-  Definition cap_is_in_bounds (c:t) : bool := CapIsInBounds (bv_to_mword c.(cap)).
+  Definition cap_is_in_bounds (c:t) : bool := CapIsInBounds (bv_to_mword c).
 
   Definition cap_is_not_in_bounds (cap:t) : bool := negb (cap_is_in_bounds cap).  
   
-  Definition cap_is_exponent_out_of_range (c:t) : bool :=
-    CapIsExponentOutOfRange (bv_to_mword c.(cap)).
+  Definition cap_is_exponent_out_of_range (c:t) : bool := CapIsExponentOutOfRange (bv_to_mword c).
 
   Definition cap_has_perm (cap:t) :=
     let perms : (mword 64) := zero_extend (bv_to_mword (cap_get_perms cap)) 64 in 
@@ -650,7 +620,7 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let value := cap_get_value unsealing_cap in 
     let key := cap_get_obj_type sealed_cap in 
     let unsealed_sealed_cap := 
-      with_cap sealed_cap (mword_to_bv (CapUnseal (cap_to_mword sealed_cap))) in 
+      (mword_to_bv (CapUnseal (cap_to_mword sealed_cap))) in 
     let unsealed_sealed_cap := 
       if (negb (cap_has_global_perm unsealing_cap)) then
         cap_clear_global_perm unsealed_sealed_cap
@@ -672,8 +642,7 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
       cap_invalidate new_cap.
 
   (* For sealing with RB *)
-  Definition cap_seal_entry (cap:t) : t := 
-    cap_seal_immediate cap SealType.sealed_entry_ot.
+  Definition cap_seal_entry (cap:t) : t := cap_seal_immediate cap SealType.sealed_entry_ot.
 
   (* For sealing with LB *)
   Definition cap_seal_indirect_entry (cap:t) : t := 
@@ -720,12 +689,12 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
     else Gt.
 
   Definition exact_compare (cap1 cap2 : t) : comparison :=
-    if (cap1.(cap) =? cap2.(cap)) then Eq 
-    else if (cap1.(cap) <? cap2.(cap)) then Lt 
+    if (cap1 =? cap2) then Eq 
+    else if (cap1 <? cap2) then Lt 
     else Gt.
 
   Definition cap_ptraddr_representable (c : t) (a : AddressValue.t) : bool :=
-    CapIsRepresentable (bv_to_mword c.(cap)) (bv_to_mword a).
+    CapIsRepresentable (bv_to_mword c) (bv_to_mword a).
   
   Definition cap_bounds_representable_exactly (cap : t) (bounds : Bounds.t) : bool :=
     let '(base, limit) := bounds in
@@ -749,7 +718,7 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let a := cap_get_value c in
     let c0 := cap_c0 () in
     let c' := cap_set_value c0 a in
-    c.(cap) =? c'.(cap).
+    c =? c'.
     
   Definition bool_bits_of_bytes (bytes : list ascii): list bool
   :=
@@ -761,31 +730,30 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
   List.fold_left (fun l a => List.app l (ascii_to_bits a)) bytes [].  
 
   (* Internal helper function to convert between Sail bytes ([memory_byte])
-     and Cerberus bytes ([ascii]). *)
+     and [ascii]. *)
   Definition memory_byte_to_ascii (b:memory_byte) : option ascii :=
     match List.map bool_of_bit b with
     | [a1;a2;a3;a4;a5;a6;a7;a8] => Some (Ascii a8 a7 a6 a5 a4 a3 a2 a1)
     | _ => None
     end.
 
-  Fixpoint try_map {A B:Type} (f : A -> option B) (l:list A) : option (list B)
-  :=
-  match l with
-  | [] => Some []
-  | a :: t =>
-      match f a with
-      | Some b =>
-          match try_map f t with
-          | Some bs =>  Some (b :: bs)
-          | None => None
-          end
-      | None => None
-      end
-  end.
+  Fixpoint try_map {A B:Type} (f : A -> option B) (l:list A) : option (list B) :=
+    match l with
+    | [] => Some []
+    | a :: t =>
+        match f a with
+        | Some b =>
+            match try_map f t with
+            | Some bs =>  Some (b :: bs)
+            | None => None
+            end
+        | None => None
+        end
+    end.
 
   Definition encode (isexact : bool) (c : t) : option ((list ascii) * bool) :=
     let tag : bool := cap_is_valid c in 
-    let cap_bits := bits_of (bv_to_mword c.(cap)) in 
+    let cap_bits := bits_of (bv_to_mword c) in 
     let w : (mword _) := vec_of_bits (List.tail cap_bits) in
     match mem_bytes_of_bits w with
     | Some bytes =>
@@ -804,9 +772,9 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
       let w : (mword _) := vec_of_bits bitsu in
       (* Some (mword_to_bv w) *) (* This requires the proof below, but makes tests harder *)
       let z : Z := mword_to_Z_unsigned w in 
-      let c : option cap_t := Z_to_bv_checked Capability.len z in 
+      let c : option t := Z_to_bv_checked Capability.len z in 
       match c with 
-        Some c => Some (cap_t_to_t c Default_CapGhostState)
+        Some c => Some c
       | None   => None
       end
     else
@@ -829,9 +797,9 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
             -- unfold bitsu. unfold length_list. rewrite map_length. rewrite R. reflexivity.
     Defined. *)  
 
-  Definition eqb_cap (cap1:cap_t) (cap2:cap_t) : bool := (cap1 =? cap2)%stdpp.
+  Definition eqb_cap (cap1:t) (cap2:t) : bool := (cap1 =? cap2)%stdpp.
     
-  Definition eqb (cap1:t) (cap2:t) : bool := eqb_cap cap1.(cap) cap2.(cap).
+  Definition eqb (cap1:t) (cap2:t) : bool := eqb_cap cap1 cap2.
 
   Definition is_sentry (c : t) : bool :=
     match cap_get_seal c with
@@ -840,13 +808,11 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
     end.
     
   Definition flags_as_str (c:t): string :=
-    let attrs :=
+    let attrs : list string :=
       let a (f:bool) s l := if f then s::l else l in
-      let gs := (get_ghost_state c).(tag_unspecified) in
-        a gs "notag"
-          (a (andb (negb (cap_is_valid c)) (negb gs)) "invalid"
-             (a (is_sentry c) "sentry"
-                (a ((negb (is_sentry c)) && cap_is_sealed c) "sealed" [])))
+        (a (negb (cap_is_valid c))) "invalid"
+          (a (is_sentry c) "sentry"
+            (a ((negb (is_sentry c)) && cap_is_sealed c) "sealed" []))
       in
     if Nat.eqb (List.length attrs) 0%nat then ""
     else " (" ++ String.concat "," attrs ++ ")".
@@ -859,16 +825,12 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
       AddressValue.to_string (cap_get_value c)
     else
       (AddressValue.to_string (cap_get_value c)) ++ " " ++ "[" ++
-        (if (get_ghost_state c).(bounds_unspecified)
-         then "?-?"
-         else
-           Permissions.to_string (cap_get_perms c) ++ "," ++
-           Bounds.to_string (cap_get_bounds c)  )
+        ( Permissions.to_string (cap_get_perms c) ++ "," ++
+          Bounds.to_string (cap_get_bounds c) )
         ++ "]" ++
         (flags_as_str c).
 
-  Definition to_string_full (c:t) : string :=
-    HexString.of_Z (bv_to_Z_unsigned c.(cap)). 
+  Definition to_string_full (c:t) : string := HexString.of_Z (bv_to_Z_unsigned c). 
 
   Definition to_string (c:t) : string := to_string_pretty_2 c.
 
@@ -894,7 +856,7 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
         rewrite <- P. unfold value_compare. unfold eq. rewrite Z.eqb_refl. reflexivity. Qed. *)  
 
   Lemma eqb_value_compare: forall (a b : t), eqb a b = true -> value_compare a b = Eq.
-  Proof. intros. unfold eqb in H. assert (P: (cap a) = (cap b)). (* or just apply Lemma eqb_cap_value_compare *)
+  Proof. intros. unfold eqb in H. assert (P: a = b). (* or just apply Lemma eqb_cap_value_compare *)
     { unfold eqb_cap in H. unfold Morello.eqb in H. rewrite -> Z.eqb_eq in H. 
       apply bv_eq. apply H. }
     unfold value_compare. unfold cap_get_value.
@@ -915,10 +877,9 @@ Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Lemma eqb_exact_compare: forall (a b : t), eqb a b = true <-> exact_compare a b = Eq.
   Proof. split.
     - unfold eqb. unfold eqb_cap. unfold exact_compare. intros. rewrite H. reflexivity. 
-    - unfold eqb. unfold eqb_cap. unfold exact_compare. destruct (cap a =? cap b).
+    - unfold eqb. unfold eqb_cap. unfold exact_compare. destruct (a =? b).
       + reflexivity.
-      + destruct (cap a <? cap b). 
-        { discriminate. } { discriminate. }
+      + destruct (a <? b); discriminate.
     Qed.
         
 End Capability.  
