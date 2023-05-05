@@ -11,7 +11,7 @@ Require Import Sail.Values.
 Require Import Sail.Operators_mwords.
 Require Import CapFns.
 
-From Common Require Import Utils Addr Capabilities.
+From CheriCaps.Common Require Import Utils Addr Capabilities.
 
 Module tests_convertors.
 
