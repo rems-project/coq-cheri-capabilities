@@ -1,4 +1,5 @@
 (coq.theory
  (name Common)
+ (package coq-cheri-capabilities)
  (modules SimpleError Utils Addr Capabilities)
 )
