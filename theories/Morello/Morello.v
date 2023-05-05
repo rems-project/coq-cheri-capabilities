@@ -10,7 +10,7 @@ From stdpp.unstable Require Import bitvector.
 Require Import Sail.Values.
 Require Import Sail.Operators_mwords.
 
-From Common Require Import Utils Addr Capabilities.
+From CheriCaps.Common Require Import Utils Addr Capabilities.
 
 Require Import CapFns.
 
