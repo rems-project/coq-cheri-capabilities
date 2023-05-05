@@ -1,4 +1,3 @@
 (executable
- (public_name CheriCaps)
  (name main)
 (libraries coq_cheri_capabilities))
