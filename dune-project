@@ -3,6 +3,7 @@
 
 (generate_opam_files)
 
+(name coq-cheri-capabilities)
 
 (source (github rems-project/coq-cheri-capabilities))
 (license BSD-3-clause)
