@@ -1,6 +1,6 @@
 (coq.theory
  (name Morello)
- (package coq-cheri-capabilities)
+
  (modules CapFns CapFnsTypes Morello MorelloTests)
  (theories Common)
 )
