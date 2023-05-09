@@ -22,7 +22,7 @@ opam repo add --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam pin -n coq-sail https://github.com/rems-project/coq-sail.git
 ```
 
-4. You may now install the opam package `coq-cheri-capabilities` with
+4. You may now install the opam package `coq-cheri-capabilities` and its dependencies with
 ```
 opam install ./coq-cheri-capabilities.opam
 ```
