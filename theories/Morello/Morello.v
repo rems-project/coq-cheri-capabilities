@@ -71,7 +71,7 @@ Program Definition list_bool_to_bv (l : list bool) : bv (N.of_nat (List.length l
  Next Obligation. intros. unfold Z.of_nat. destruct (length l). 
  {reflexivity. } {reflexivity. } Defined.  
 
-Module Permissions <: Permission.
+Module Permissions <: PERMISSIONS.
   Definition len:N := 18. (* CAP_PERMS_NUM_BITS = 16 bits of actual perms + 2 bits for Executive and Global *)
   Definition t := bv len. 
   
@@ -478,7 +478,7 @@ Module Bounds <: PTRADDR_INTERVAL(AddressValue).
 End Bounds. 
 
 
-Module Capability <: Capability (AddressValue) (Flags) (ObjType) (SealType) (Bounds) (Permissions).
+Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bounds) (Permissions).
   Definition len:N := 129.
   Definition t := bv len.
   

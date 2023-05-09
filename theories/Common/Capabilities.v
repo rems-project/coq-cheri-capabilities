@@ -18,7 +18,7 @@ Open Scope Z_scope.
 Open Scope list_scope.
 
 
-Module Type Permission.
+Module Type PERMISSIONS.
   Parameter t:Set.
 
   Parameter user_perms_len: nat.
@@ -84,7 +84,7 @@ Module Type Permission.
   Parameter to_list: t -> list bool.
 
   Parameter eqb: t -> t -> bool.
-End Permission.
+End PERMISSIONS.
 
 
 Module Type OTYPE.
@@ -115,13 +115,13 @@ Module Type FLAGS.
 End FLAGS.
 
 
-Module Type Capability
+Module Type CAPABILITY
   (V:PTRADDR)
   (F:FLAGS)
   (OT:OTYPE)
   (S:CAP_SEAL_T)
   (I:PTRADDR_INTERVAL V)
-  (P:Permission).
+  (P:PERMISSIONS).
 
   Parameter t: Set.
 
@@ -327,4 +327,4 @@ Module Type Capability
   (* Make sure `eqb` and `value_compare` are consistent *)
   Parameter eqb_value_compare: forall a b, eqb a b = true -> value_compare a b = Eq.
 
-End Capability.
+End CAPABILITY.
