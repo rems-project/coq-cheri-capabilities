@@ -367,14 +367,14 @@ Module AddressValue <: PTRADDR.
   Definition bitwise_complement (a:t) : t :=
     of_Z (bitwise_complement_Z (to_Z a)).
 
-  Definition eqb (v1:t) (v2:t) : bool := Morello.eqb v1 v2.
-  Definition ltb (v1:t) (v2:t) : bool := Morello.ltb v1 v2.
-  Definition leb (v1:t) (v2:t) : bool := Morello.leb v1 v2.
+  Definition eqb (v1:t) (v2:t) : bool := Capabilities.eqb v1 v2.
+  Definition ltb (v1:t) (v2:t) : bool := Capabilities.ltb v1 v2.
+  Definition leb (v1:t) (v2:t) : bool := Capabilities.leb v1 v2.
 
   Definition to_string (v:t) : string := HexString.of_Z (bv_to_Z_unsigned v).
   
   Definition ltb_irref: forall a:t, ltb a a = false.
-  Proof. intros. unfold ltb. unfold Morello.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
+  Proof. intros. unfold ltb. unfold Capabilities.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
   
 End AddressValue.
 
@@ -857,10 +857,10 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 
   Lemma eqb_value_compare: forall (a b : t), eqb a b = true -> value_compare a b = Eq.
   Proof. intros. unfold eqb in H. assert (P: a = b). (* or just apply Lemma eqb_cap_value_compare *)
-    { unfold eqb_cap in H. unfold Morello.eqb in H. rewrite -> Z.eqb_eq in H. 
+    { unfold eqb_cap in H. unfold Capabilities.eqb in H. rewrite -> Z.eqb_eq in H. 
       apply bv_eq. apply H. }
     unfold value_compare. unfold cap_get_value.
-    rewrite <- P. unfold Morello.eqb.
+    rewrite <- P. unfold Capabilities.eqb.
     rewrite Z.eqb_refl. reflexivity. Qed.
   
   

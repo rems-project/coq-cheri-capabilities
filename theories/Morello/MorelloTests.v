@@ -1,4 +1,4 @@
-Require Import Morello.
+Require Import Morello.Capabilities.
 Require Import Coq.Arith.PeanoNat.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
