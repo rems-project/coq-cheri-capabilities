@@ -16,7 +16,7 @@ depends: [
   "coq-sail"
   "coq-ext-lib"
   "coq-struct-tact"
-  "coq-stdpp-unstable" { (= "dev") | (= "dev.2023-01-08.0.a34184ae") }
+  "coq-stdpp-unstable" { (= "dev") | (= "dev.2022-12-05.0.0231fed2") }
   "odoc" {with-doc}
 ]
 build: [
