@@ -1,7 +1,7 @@
 (lang dune 3.7)
 (using coq 0.7)
 
-(generate_opam_files)
+(generate_opam_files false)
 
 (name coq-cheri-capabilities)
 
