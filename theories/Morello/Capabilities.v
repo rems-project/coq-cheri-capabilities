@@ -595,22 +595,54 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   
   Definition cap_is_exponent_out_of_range (c:t) : bool := CapIsExponentOutOfRange (bv_to_mword c).
 
-  Definition cap_has_perm (cap:t) :=
+  Definition cap_permits (cap:t) :=
     let perms : (mword 64) := zero_extend (bv_to_mword (cap_get_perms cap)) 64 in 
     fun perm => CapPermsInclude perms perm.
 
-  Definition cap_has_seal_perm (cap:t) : bool := cap_has_perm cap CAP_PERM_SEAL.
+  Definition cap_permits_system_access (cap:t) : bool := 
+    Permissions.has_system_access_perm (cap_get_perms cap).
+  
+  Definition cap_permits_seal (cap:t) : bool := 
+    Permissions.has_seal_perm (cap_get_perms cap).
+  
+  Definition cap_permits_unseal (cap:t) : bool := 
+    Permissions.has_unseal_perm (cap_get_perms cap).
+  
+  Definition cap_permits_store (cap:t) : bool := 
+    Permissions.has_store_perm (cap_get_perms cap).
+  
+  Definition cap_permits_store_cap (cap:t) : bool := 
+    Permissions.has_store_cap_perm (cap_get_perms cap).
+  
+  Definition cap_permits_store_local_cap (cap:t) : bool := 
+    Permissions.has_store_local_cap_perm (cap_get_perms cap).
+  
+  Definition cap_permits_load (cap:t) : bool := 
+    Permissions.has_load_perm (cap_get_perms cap).
+  
+  Definition cap_permits_load_cap (cap:t) : bool := 
+    Permissions.has_load_cap_perm (cap_get_perms cap).
+  
+  Definition cap_permits_execute (cap:t) : bool := 
+    Permissions.has_execute_perm (cap_get_perms cap).
+  
+  Definition cap_permits_ccall (cap:t) : bool := 
+    Permissions.has_ccall_perm (cap_get_perms cap).
 
-  Definition cap_has_unseal_perm (cap:t) : bool := cap_has_perm cap CAP_PERM_UNSEAL.
 
-  Definition cap_has_global_perm (cap:t) : bool := cap_has_perm cap CAP_PERM_GLOBAL.
+
+  (* Definition cap_permits_seal (cap:t) : bool := cap_permits cap CAP_PERM_SEAL.
+
+  Definition cap_permits_unseal (cap:t) : bool := cap_permits cap CAP_PERM_UNSEAL. *)
+
+  Definition cap_is_global (cap:t) : bool := cap_permits cap CAP_PERM_GLOBAL.
 
   Definition cap_seal (cap : t) (k : t) : t :=
     let key : ObjType.t := (cap_get_value k) in 
     let sealed_cap := cap_set_objtype cap key in 
     if (cap_is_valid cap) && (cap_is_valid k) && 
        (cap_is_unsealed cap) && (cap_is_unsealed k) && 
-       (cap_has_seal_perm k) && (cap_is_in_bounds k) &&
+       (cap_permits_seal k) && (cap_is_in_bounds k) &&
        (Z.to_N (bv_to_Z_unsigned key) <=? ObjType.CAP_MAX_OBJECT_TYPE)%N then 
        sealed_cap
     else
@@ -622,12 +654,12 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let unsealed_sealed_cap := 
       (mword_to_bv (CapUnseal (cap_to_mword sealed_cap))) in 
     let unsealed_sealed_cap := 
-      if (negb (cap_has_global_perm unsealing_cap)) then
+      if (negb (cap_is_global unsealing_cap)) then
         cap_clear_global_perm unsealed_sealed_cap
       else unsealed_sealed_cap in 
     if (cap_is_valid sealed_cap && cap_is_valid unsealing_cap 
         && cap_is_sealed sealed_cap && cap_is_unsealed unsealing_cap
-        && cap_has_unseal_perm unsealing_cap
+        && cap_permits_unseal unsealing_cap
         && cap_is_in_bounds unsealing_cap && (key =? value) ) then 
       unsealed_sealed_cap
     else 
@@ -882,6 +914,11 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       + destruct (a <? b); discriminate.
     Qed.
         
+  Lemma eqb_refl: forall (a:t), eqb a a = true.
+  Proof.
+    intros. unfold eqb; unfold eqb_cap; unfold Capabilities.eqb. apply Z.eqb_eq. reflexivity.
+  Qed.
+
 End Capability.  
 
 
