@@ -17,19 +17,22 @@ Require Import CapFns.
 
 (** Notations and their definitions **)
 
-Definition eqb {n} (v1:bv n) (v2:bv n) : bool :=
+Definition eqb {n} (v1 v2 : bv n) : bool :=
   v1.(bv_unsigned) =? v2.(bv_unsigned).
-Definition ltb {n} (v1:bv n) (v2:bv n) : bool :=
+Definition ltb {n} (v1 v2 : bv n) : bool :=
   v1.(bv_unsigned) <? v2.(bv_unsigned).
-Definition leb {n} (v1:bv n) (v2:bv n) : bool := 
+Definition leb {n} (v1 v2 : bv n) : bool := 
   ltb v1 v2 || eqb v1 v2.
-Definition gtb {n} (v1:bv n) (v2:bv n) : bool := 
+Definition gtb {n} (v1 v2 : bv n) : bool := 
   leb v2 v1.
+Definition geb {n} (v1 v2 : bv n) : bool := 
+  gtb v1 v2 || eqb v1 v2.
 
 Local Notation "x =? y" := (eqb x y) (at level 70, no associativity).
 Local Notation "x <? y" := (ltb x y) (at level 70, no associativity).
 Local Notation "x <=? y" := (leb x y) (at level 70, no associativity).
 Local Notation "x >? y" := (gtb x y) (at level 70, no associativity).
+Local Notation "x >=? y" := (geb x y) (at level 70, no associativity).
 
 Local Notation "(<@{ A } )" := (@lt A) (only parsing) : stdpp_scope.
 Local Notation LtDecision A := (RelDecision (<@{A})).
@@ -358,6 +361,8 @@ Module AddressValue <: PTRADDR.
 
   Definition of_Z (z:Z) : t := Z_to_bv len z.
   Definition to_Z (v:t) : Z := bv_to_Z_unsigned v.
+  Definition with_offset (v:t) (o:Z) : t :=
+    of_Z (to_Z v + o).
 
   Definition bitwise_complement_Z (a:Z) : Z :=
     let bits := Z_to_binary (N.to_nat len) a in
@@ -466,6 +471,11 @@ Module Bounds <: PTRADDR_INTERVAL(AddressValue).
     ((base_a <? base_b) && (limit_a <=? limit_b))
     || ((base_a <=? base_b) && (limit_a <? limit_b)).
 
+  Definition contained (a b:t) := 
+    let '(base_a, limit_a) := a in
+    let '(base_b, limit_b) := b in
+    (base_a >=? base_b) && (limit_a <=? limit_b).
+
   Definition to_string (b:t) : string := 
     let (base,top) := b in 
     HexString.of_Z (bv_to_Z_unsigned base) ++ "-" ++ HexString.of_Z (bv_to_Z_unsigned top).
@@ -545,6 +555,9 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let new_cap := (mword_to_bv (CapSetValue (bv_to_mword c) (bv_to_mword value))) in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
   
+  Definition cap_add_offset_to_value (c:t) (o:Z) : t :=
+    cap_set_value c (AddressValue.with_offset (cap_get_value c) o).
+  
   Definition cap_set_flags (c:t) (f: Flags.t) : t :=
     let new_cap :=
       let flags_m : (mword (Z.of_nat Flags.length)) := of_bools (List.rev (proj1_sig f)) in
@@ -595,10 +608,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   
   Definition cap_is_exponent_out_of_range (c:t) : bool := CapIsExponentOutOfRange (bv_to_mword c).
 
-  Definition cap_permits (cap:t) :=
-    let perms : (mword 64) := zero_extend (bv_to_mword (cap_get_perms cap)) 64 in 
-    fun perm => CapPermsInclude perms perm.
-
   Definition cap_permits_system_access (cap:t) : bool := 
     Permissions.has_system_access_perm (cap_get_perms cap).
   
@@ -629,14 +638,26 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition cap_permits_ccall (cap:t) : bool := 
     Permissions.has_ccall_perm (cap_get_perms cap).
 
+  Definition cap_is_global (cap:t) : bool :=
+    Permissions.has_global_perm (cap_get_perms cap).
 
+  Definition leq_perms (c1 c2 : t) : bool :=
+    if (cap_is_global c1) && negb (cap_is_global c2) then false
+    else if (cap_permits_execute c1) && negb (cap_permits_execute c2) then false
+    else if (cap_permits_ccall c1) && negb (cap_permits_ccall c2) then false
+    else if (cap_permits_load c1) && negb (cap_permits_load c2) then false
+    else if (cap_permits_load_cap c1) && negb (cap_permits_load_cap c2) then false
+    else if (cap_permits_seal c1) && negb (cap_permits_seal c2) then false
+    else if (cap_permits_unseal c1) && negb (cap_permits_unseal c2) then false
+    else if (cap_permits_store c1) && negb (cap_permits_store c2) then false
+    else if (cap_permits_store_cap c1) && negb (cap_permits_store_cap c2) then false
+    else if (cap_permits_store_local_cap c1) && negb (cap_permits_store_local_cap c2) then false
+    else if (cap_permits_system_access c1) && negb (cap_permits_system_access c2) then false
+    else true.
 
-  (* Definition cap_permits_seal (cap:t) : bool := cap_permits cap CAP_PERM_SEAL.
-
-  Definition cap_permits_unseal (cap:t) : bool := cap_permits cap CAP_PERM_UNSEAL. *)
-
-  Definition cap_is_global (cap:t) : bool := cap_permits cap CAP_PERM_GLOBAL.
-
+  Definition bounds_contained (c1 c2 : t) : bool :=
+    Bounds.contained (cap_get_bounds c1) (cap_get_bounds c2).    
+  
   Definition cap_seal (cap : t) (k : t) : t :=
     let key : ObjType.t := (cap_get_value k) in 
     let sealed_cap := cap_set_objtype cap key in 
@@ -648,11 +669,14 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     else
        cap_invalidate sealed_cap.
 
+  Definition cap_unseal_direct (sealed_cap:t) : t := 
+    mword_to_bv (CapUnseal (cap_to_mword sealed_cap)).
+
   Definition cap_unseal (sealed_cap:t) (unsealing_cap:t) : t :=
     let value := cap_get_value unsealing_cap in 
     let key := cap_get_obj_type sealed_cap in 
     let unsealed_sealed_cap := 
-      (mword_to_bv (CapUnseal (cap_to_mword sealed_cap))) in 
+      cap_unseal_direct sealed_cap in 
     let unsealed_sealed_cap := 
       if (negb (cap_is_global unsealing_cap)) then
         cap_clear_global_perm unsealed_sealed_cap
@@ -660,7 +684,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     if (cap_is_valid sealed_cap && cap_is_valid unsealing_cap 
         && cap_is_sealed sealed_cap && cap_is_unsealed unsealing_cap
         && cap_permits_unseal unsealing_cap
-        && cap_is_in_bounds unsealing_cap && (key =? value) ) then 
+        && cap_is_in_bounds unsealing_cap && (key =? value)) then 
       unsealed_sealed_cap
     else 
       cap_invalidate unsealed_sealed_cap.
@@ -833,12 +857,26 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     
   Definition eqb (cap1:t) (cap2:t) : bool := eqb_cap cap1 cap2.
 
-  Definition is_sentry (c : t) : bool :=
+  Definition is_sentry (c:t) : bool :=
     match cap_get_seal c with
     | SealType.Cap_SEntry => true
-    | _ => false
+    | _                   => false
+    end.
+
+  Definition is_indirect_sentry (c:t) : bool :=
+    match cap_get_seal c with
+    | SealType.Cap_Indirect_SEntry      => true
+    | SealType.Cap_Indirect_SEntry_Pair => true
+    | _                                 => false
     end.
     
+  Definition get_indirect_sentry_type (c:t) : option SealType.t :=
+    match cap_get_seal c with
+    | SealType.Cap_Indirect_SEntry      => Some SealType.Cap_Indirect_SEntry
+    | SealType.Cap_Indirect_SEntry_Pair => Some SealType.Cap_Indirect_SEntry_Pair
+    | _                                 => None 
+    end.
+
   Definition flags_as_str (c:t): string :=
     let attrs : list string :=
       let a (f:bool) s l := if f then s::l else l in
@@ -918,6 +956,14 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Proof.
     intros. unfold eqb; unfold eqb_cap; unfold Capabilities.eqb. apply Z.eqb_eq. reflexivity.
   Qed.
+
+  Lemma eqb_eq : forall (a b:t), (a =? b) = true <-> a = b.
+  Proof. 
+    split.
+    - intro H. unfold Capabilities.eqb in H. 
+      apply Z.eqb_eq in H. apply bv_eq in H. exact H.
+    - intro H. rewrite H. apply eqb_refl.
+  Defined.  
 
 End Capability.  
 
