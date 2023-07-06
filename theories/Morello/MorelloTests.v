@@ -48,9 +48,9 @@ Module test_cap_getters_and_setters.
   Program Definition flags2:Flags.t := exist _ [false; true; false; true; false; true; false; true] _. 
     Next Obligation. reflexivity. Defined.
     
-  Definition perm_Load : list bool := Permissions.make_permissions [Permissions.Load_perm].
-  Definition perm_Load_Store : list bool := Permissions.make_permissions [Permissions.Load_perm; Permissions.Store_perm].
-  Definition perm_Load_Execute : list bool := Permissions.make_permissions [Permissions.Load_perm; Permissions.Execute_perm].
+  Definition perm_Load : Permissions.t := Permissions.make_permissions [Permissions.Load_perm].
+  Definition perm_Load_Store : Permissions.t := Permissions.make_permissions [Permissions.Load_perm; Permissions.Store_perm].
+  Definition perm_Load_Execute : Permissions.t := Permissions.make_permissions [Permissions.Load_perm; Permissions.Execute_perm].
   
   Example is_valid_test_1 :
     cap_is_valid c1 = true.
@@ -86,19 +86,19 @@ Module test_cap_getters_and_setters.
     Proof. reflexivity. Qed.
 
   Example permissions_test_2 : 
-    let mask : Permissions.t := list_bool_to_bv (perm_Load_Store) in
-    list_bool_to_bv perm_Load_Store = cap_get_perms (cap_narrow_perms c1 mask).
+    let mask : Permissions.t := perm_Load_Store in
+    perm_Load_Store = cap_get_perms (cap_narrow_perms c1 mask).
     Proof. reflexivity. Qed.
 
   Example permissions_test_3 : 
-    let mask : Permissions.t := list_bool_to_bv (perm_Load_Store) in
-    let cap := (cap_narrow_perms c1 mask) in 
-    let mask : Permissions.t := list_bool_to_bv (perm_Load_Execute) in
-    list_bool_to_bv perm_Load = cap_get_perms (cap_narrow_perms cap mask).
+    let mask : Permissions.t := perm_Load_Store in
+    let cap := cap_narrow_perms c1 mask in 
+    let mask : Permissions.t := perm_Load_Execute in
+    perm_Load = cap_get_perms (cap_narrow_perms cap mask).
     Proof. vm_compute. reflexivity. Qed.
 
   Example permissions_test_4 : 
-    let mask : Permissions.t := list_bool_to_bv ((make_permissions [Load_perm; Execute_perm])) in  
+    let mask : Permissions.t := make_permissions [Load_perm; Execute_perm] in  
     let capA := (cap_narrow_perms c1 mask) in     
     let perms : Permissions.t := Permissions.perm_Universal in 
     let perms := perm_clear_store_cap perms in 
@@ -133,7 +133,7 @@ Module test_cap_getters_and_setters.
     Proof. vm_compute. split. reflexivity. reflexivity. Qed. 
  
   Example eqb_and_narrow_perm_test_1 :
-    let mask : Permissions.t := list_bool_to_bv (perm_Load_Store) in
+    let mask : Permissions.t := perm_Load_Store in
     (c2 = (cap_narrow_perms c1 mask))%stdpp.
     Proof. vm_compute. reflexivity. Qed.
 
@@ -287,4 +287,3 @@ Module test_cap_getters_and_setters.
   Proof. vm_compute. reflexivity. Qed.
 
 End test_cap_getters_and_setters. 
-

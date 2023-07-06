@@ -137,7 +137,7 @@ Module Permissions <: PERMISSIONS.
     [ has_user1_perm permissions; has_user2_perm permissions; 
       has_user3_perm permissions; has_user4_perm permissions ]. 
 
-  Definition make_permissions (perms: list perm) : list bool :=  
+  Definition list_perm_to_list_bool (perms: list perm) : list bool :=  
     let isLoad_perm : (perm -> bool) := fun p => match p with Load_perm => true | _ => false end in 
     let isStore_perm : (perm -> bool) := fun p => match p with Store_perm => true | _ => false end in 
     let isExecute_perm : (perm -> bool) := fun p => match p with Execute_perm => true | _ => false end in 
@@ -166,6 +166,10 @@ Module Permissions <: PERMISSIONS.
         existsb (isLoadCap_perm) perms;          existsb (isExecute_perm) perms;  
         existsb (isStore_perm) perms;            existsb (isLoad_perm) perms  ].
 
+  Program Definition make_permissions (perms: list perm) : t :=  
+    @of_list_bool (list_perm_to_list_bool perms) _.
+    Next Obligation. auto. Defined.
+
   Program Definition perm_and_user_perms (perms:t) (user_perms:list bool) : t := 
     let user_perm_4 := (nth 3 user_perms false) && (has_user4_perm perms) in   
     let user_perm_3 := (nth 2 user_perms false) && (has_user3_perm perms) in 
@@ -179,24 +183,21 @@ Module Permissions <: PERMISSIONS.
    Next Obligation. reflexivity. Defined.
       
   Program Definition perm_p0 : t := 
-    @of_list_bool (make_permissions []) _.
+    @of_list_bool (list_perm_to_list_bool []) _.
    Next Obligation. reflexivity. Defined.
 
-  Program Definition perm_Universal : t := 
-    @of_list_bool (make_permissions [ Global_perm; Executive_perm; User1_perm; User2_perm; 
+  Definition perm_Universal : t := 
+    (make_permissions [ Global_perm; Executive_perm; User1_perm; User2_perm; 
     User3_perm; User4_perm; MutableLoad_perm; CompartmentID_perm; BranchSealedPair_perm; 
     System_perm; Unseal_perm; Seal_perm; StoreLocalCap_perm; StoreCap_perm; LoadCap_perm; 
-    Execute_perm; Store_perm; Load_perm ]) _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_alloc : t :=
-    @of_list_bool (make_permissions [ Load_perm; Store_perm; LoadCap_perm; StoreCap_perm; StoreLocalCap_perm ]) _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_alloc_fun : t := 
-    @of_list_bool (make_permissions [ Load_perm; Execute_perm; LoadCap_perm ]) _.
-    Next Obligation. reflexivity. Defined.
-
+    Execute_perm; Store_perm; Load_perm ]).
+    
+  Definition perm_alloc : t :=
+    (make_permissions [ Load_perm; Store_perm; LoadCap_perm; StoreCap_perm; StoreLocalCap_perm ]).
+    
+  Definition perm_alloc_fun : t := 
+    (make_permissions [ Load_perm; Execute_perm; LoadCap_perm ]).
+    
   Program Definition perm_clear_global (perms:t) : t :=
     @of_list_bool [ false; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
     has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
@@ -577,7 +578,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
 
   Definition cap_clear_global_perm (cap:t) : t := 
-    cap_narrow_perms cap (list_bool_to_bv (Permissions.make_permissions [Permissions.Global_perm])).
+    cap_narrow_perms cap ((Permissions.make_permissions [Permissions.Global_perm])).
 
   Definition cap_set_bounds (c : t) (bounds : Bounds.t) (exact : bool) : t :=
     (* CapSetBounds sets the lower bound to the value of the input cap,
@@ -596,17 +597,25 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition cap_narrow_bounds_exact (cap : t) (bounds : Bounds.t) : t :=
     cap_set_bounds cap bounds true.
 
-  Definition cap_is_valid (c:t) : bool := Bool.eqb (CapIsTagClear (bv_to_mword c)) false.
+  Definition cap_get_all_addresses_in_bounds (cap : t) : list AddressValue.t := 
+    let (base,limit) := Bounds.to_Zs (cap_get_bounds cap) in 
+    let addresses : list nat := List.seq (Z.to_nat base) (Z.to_nat limit - Z.to_nat base) in 
+    map AddressValue.of_Z (map Z.of_nat addresses).
+
+  Definition bounds_contained (c1 c2 : t) : bool :=
+    Bounds.contained (cap_get_bounds c1) (cap_get_bounds c2).    
+  
+  Definition cap_is_valid (cap:t) : bool := Bool.eqb (CapIsTagClear (bv_to_mword cap)) false.
 
   Definition cap_is_invalid (cap:t) : bool := negb (cap_is_valid cap).
     
   Definition cap_is_unsealed (cap:t) : bool := negb (cap_is_sealed cap).
   
-  Definition cap_is_in_bounds (c:t) : bool := CapIsInBounds (bv_to_mword c).
+  Definition cap_is_in_bounds (cap:t) : bool := CapIsInBounds (bv_to_mword cap).
 
   Definition cap_is_not_in_bounds (cap:t) : bool := negb (cap_is_in_bounds cap).  
   
-  Definition cap_is_exponent_out_of_range (c:t) : bool := CapIsExponentOutOfRange (bv_to_mword c).
+  Definition cap_is_exponent_out_of_range (cap:t) : bool := CapIsExponentOutOfRange (bv_to_mword cap).
 
   Definition cap_permits_system_access (cap:t) : bool := 
     Permissions.has_system_access_perm (cap_get_perms cap).
@@ -654,9 +663,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     else if (cap_permits_store_local_cap c1) && negb (cap_permits_store_local_cap c2) then false
     else if (cap_permits_system_access c1) && negb (cap_permits_system_access c2) then false
     else true.
-
-  Definition bounds_contained (c1 c2 : t) : bool :=
-    Bounds.contained (cap_get_bounds c1) (cap_get_bounds c2).    
   
   Definition cap_seal (cap : t) (k : t) : t :=
     let key : ObjType.t := (cap_get_value k) in 
