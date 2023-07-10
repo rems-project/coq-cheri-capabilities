@@ -2,28 +2,18 @@ name: CI
 run-name: ${{ github.actor }}'s CI management
 on: [push]
 jobs:
-  check-bats-version:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '14'
-      - run: npm install -g bats
-      - run: bats -v
 
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - run: sudo apt install opam
-      - run: opam init
+      - run: opam init --yes
+      - run: eval $(opam env --switch=default)
       - run: opam repo add --yes --this-switch coq-released https://coq.inria.fr/opam/released
       - run: opam pin --yes -n coq-struct-tact https://github.com/uwplse/StructTact.git
       - run: opam repo add --yes  --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
       - run: opam pin --yes -n coq-sail https://github.com/rems-project/coq-sail.git
       - run: opam install --yes ./coq-cheri-capabilities.opam
       - run: eval $(opam env)
-      - run: opam install --yes dune
-      - run: eval $(opam env)
-      - run: dune build
+
