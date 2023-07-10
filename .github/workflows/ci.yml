@@ -12,13 +12,12 @@ jobs:
       - run: npm install -g bats
       - run: bats -v
 
-	build:
-		runs-on: ubuntu-latest
-		steps:
+  check-bats-version2:
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v3
-      - name: System dependency (ubuntu)
-	      run: |
-	        sudo apt install opam
-	    - name: Set up opam
-	    	run: | 
-	    		opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+      - run: npm install -g bats
+      - run: bats -v
