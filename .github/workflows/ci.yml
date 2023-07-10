@@ -17,6 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: sudo apt install opam
-      - run: opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
       - run: opam init
+      - run: opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
       - run: opam pin -n coq-struct-tact https://github.com/uwplse/StructTact.git
