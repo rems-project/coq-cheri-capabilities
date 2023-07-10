@@ -18,5 +18,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: sudo apt install opam
       - run: opam init
-      - run: opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
-      - run: opam pin -n coq-struct-tact https://github.com/uwplse/StructTact.git
+      - run: opam repo add --yes --this-switch coq-released https://coq.inria.fr/opam/released
+      - run: opam pin --yes -n coq-struct-tact https://github.com/uwplse/StructTact.git
+      - run: opam repo add --yes  --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
+      - run: opam pin --yes -n coq-sail https://github.com/rems-project/coq-sail.git
