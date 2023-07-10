@@ -16,5 +16,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: |
-	        sudo apt install opam
+      - run: sudo apt install opam
