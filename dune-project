@@ -12,9 +12,9 @@
 
 (package
  (name coq-cheri-capabilities)
- (synopsis "My first Dune package!")
- (description "\| This is my first attempt at creating
-              "\| a project with Dune.
+ (synopsis "Coq interface for CHERI capabilities")
+ (description "\| An abstract interface for CHERI capabilities 
+              "\| and a concrete one for the Morello architecture.
  )
  (depends 
  	(coq (< 8.17.0))
