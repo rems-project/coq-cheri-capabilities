@@ -535,7 +535,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let ot:ObjType.t := cap_get_obj_type cap in
     if (ot =? cap_SEAL_TYPE_UNSEALED)%stdpp then SealType.Cap_Unsealed else
     if (ot =? cap_SEAL_TYPE_RB)%stdpp then SealType.Cap_SEntry else
-    if (ot =? cap_SEAL_TYPE_LPB)%stdpp then SealType.Cap_Indirect_SEntry else 
+    if (ot =? cap_SEAL_TYPE_LPB)%stdpp then SealType.Cap_Indirect_SEntry_Pair else 
     if (ot =? cap_SEAL_TYPE_LB)%stdpp then SealType.Cap_Indirect_SEntry else 
     SealType.Cap_Sealed ot.
     
