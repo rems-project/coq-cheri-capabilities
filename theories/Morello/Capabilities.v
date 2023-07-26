@@ -381,7 +381,13 @@ Module AddressValue <: PTRADDR.
   
   Definition ltb_irref: forall a:t, ltb a a = false.
   Proof. intros. unfold ltb. unfold Capabilities.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
+
+  Global Instance morello_address_eq_dec : EqDecision t.
+  Proof. unfold t. apply bv_eq_dec. Defined.
   
+  Global Instance morello_address_countable : countable.Countable t.
+  Proof. unfold t. apply bv_countable. Defined.
+
 End AddressValue.
 
 
@@ -616,6 +622,13 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition cap_is_not_in_bounds (cap:t) : bool := negb (cap_is_in_bounds cap).  
   
   Definition cap_is_exponent_out_of_range (cap:t) : bool := CapIsExponentOutOfRange (bv_to_mword cap).
+
+  Definition cap_has_no_permissions (cap:t) : bool := 
+    ((cap_get_perms cap).(bv_unsigned) =? (Permissions.perm_p0).(bv_unsigned))%Z.
+
+  Definition cap_has_empty_bounds (cap:t) : bool := 
+    let (base,limit) := cap_get_bounds cap in 
+    (limit.(bv_unsigned) <=? base.(bv_unsigned))%Z.
 
   Definition cap_permits_system_access (cap:t) : bool := 
     Permissions.has_system_access_perm (cap_get_perms cap).
