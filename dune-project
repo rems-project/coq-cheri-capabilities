@@ -20,7 +20,6 @@
  	(coq (< 8.17.0))
   coq-sail
   coq-ext-lib
-  ; coq-struct-tact
   (coq-stdpp-unstable (= dev.2023-02-17.2.2d8ccea3))
  )
 )
