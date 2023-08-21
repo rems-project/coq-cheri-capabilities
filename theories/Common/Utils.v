@@ -8,19 +8,19 @@ Require Import Coq.ZArith.Zdigits.
 Require Import Coq.Vectors.Vector.
 Require Import Coq.Strings.Ascii.
 
-From ExtLib.Structures Require Import Monad Monads.
+(* From ExtLib.Structures Require Import Monad Monads. *)
 
-Require Import StructTact.StructTactics.
+(* Require Import StructTact.StructTactics. *)
 
 Import ListNotations.
-Import MonadNotation.
+(* Import MonadNotation. *)
 
-Require Import SimpleError.
+(* Require Import SimpleError. *)
 
 From Sail Require Import Values.
 
 Local Open Scope list_scope.
-Local Open Scope monad_scope.
+(* Local Open Scope monad_scope. *)
 Local Open Scope string_scope.
 Local Open Scope Z_scope.
 Local Open Scope bool_scope.
@@ -33,7 +33,7 @@ Fixpoint list_init {A:Type} (n:nat) (f:nat -> A): list A
   | S n => (f n) :: list_init n f
   end.
 
-Fixpoint monadic_list_init
+(* Fixpoint monadic_list_init
   {A:Type}
   {m : Type -> Type}
   {M : Monad m}
@@ -46,7 +46,7 @@ Fixpoint monadic_list_init
       h <- f n ;;
       t <- monadic_list_init n f ;;
       ret (h :: t)
-  end.
+  end. *)
 
 
 (** Inlike OCaml version if lists have different sizes, we just terminate
@@ -77,7 +77,7 @@ Definition mapi {A B: Type} (f: nat -> A -> B) (l:list A) : list B :=
    List.fold_left
      : forall A B : Type, (A -> B -> A) -> list B -> A -> A
  *)
-Fixpoint monadic_fold_left
+(* Fixpoint monadic_fold_left
   {A B : Type}
   {m : Type -> Type}
   {M : Monad m}
@@ -105,7 +105,7 @@ Fixpoint monadic_fold_left2
       accu' <- f accu a1 a2 ;;
       monadic_fold_left2 f accu' l1 l2
   | _, _ => ret accu
-  end.
+  end. *)
 
 Definition maybeEqualBy
   {A: Type}
@@ -129,7 +129,7 @@ Definition vector_drop {A:Type} {t:nat} (h:nat) (v:Vector.t A (h+t)) : Vector.t 
     representation.
     [len] must not be 0.
  *)
-Program Definition extract_num (a:Z) (off:nat) (len:nat): serr Z :=
+(* Program Definition extract_num (a:Z) (off:nat) (len:nat): serr Z :=
   match len with
   | O => raise "0 length not allowed"
   | S len' =>
@@ -141,7 +141,7 @@ Program Definition extract_num (a:Z) (off:nat) (len:nat): serr Z :=
           let v := Vector.take len _ v in
           ret (binary_value len v)
       end
-  end.
+  end. *)
 
 Definition byte_of_Z (z:Z): ascii :=
   match z with
@@ -164,7 +164,7 @@ Definition bool_bits_of_bytes (bytes : list ascii): list bool
   List.fold_left (fun l a => List.app l (ascii_to_bits a)) bytes [].
 
 (* size is in bytes *)
-Definition bytes_of_Z (is_signed: bool) (size: nat) (i: Z): serr (list ascii)
+(* Definition bytes_of_Z (is_signed: bool) (size: nat) (i: Z): serr (list ascii)
   :=
   let nbits := Z.mul 8 (Z.of_nat size) in
   let '(min, max) :=
@@ -199,7 +199,7 @@ Definition Z_of_bytes (is_signed: bool) (bs:list ascii): serr Z
             aux (Z.lxor (Z.of_nat (nat_of_ascii c_value)) (Z.shiftl acc 8)) cs'
         end in
       aux init cs
-  end.
+  end. *)
 
 (* could be generalized as monadic map, or implemented as composition
    of [map] and [sequence]. *)
