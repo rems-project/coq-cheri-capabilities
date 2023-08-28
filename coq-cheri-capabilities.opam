@@ -9,7 +9,7 @@ homepage: "https://github.com/rems-project/coq-cheri-capabilities"
 bug-reports: "https://github.com/rems-project/coq-cheri-capabilities/issues"
 depends: [
   "dune" {>= "3.7"}
-  "coq" {< "8.18.0"}
+  "coq" {< "8.17.0"}  # coq-bbv doesn't support latest versions
   "coq-sail"
   "coq-ext-lib"
   "coq-stdpp-unstable" {<= "dev.2023-08-03.3.4be5fd62"}
