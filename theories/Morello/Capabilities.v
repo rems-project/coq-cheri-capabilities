@@ -137,6 +137,30 @@ Module Permissions <: PERMISSIONS.
     [ has_user1_perm permissions; has_user2_perm permissions; 
       has_user3_perm permissions; has_user4_perm permissions ]. 
 
+  (* Returns true iff all permissions in perms2 are also in perms1. *)
+  Fixpoint includes (perms1 : t) (perms2 : list perm) : bool :=  
+    match perms2 with
+    | []                        => true 
+    | Load_perm::tl             => has_load_perm perms1 && includes perms1 tl 
+    | Store_perm::tl            => has_store_perm perms1 && includes perms1 tl 
+    | Execute_perm::tl          => has_execute_perm perms1 && includes perms1 tl 
+    | LoadCap_perm ::tl         => has_load_cap_perm perms1 && includes perms1 tl 
+    | StoreCap_perm::tl         => has_store_cap_perm perms1 && includes perms1 tl 
+    | StoreLocalCap_perm::tl    => has_store_local_cap_perm perms1 && includes perms1 tl 
+    | Seal_perm::tl             => has_seal_perm perms1 && includes perms1 tl 
+    | Unseal_perm::tl           => has_unseal_perm perms1 && includes perms1 tl 
+    | System_perm::tl           => has_system_access_perm perms1 && includes perms1 tl 
+    | BranchSealedPair_perm::tl => has_branch_sealed_pair_perm perms1 && includes perms1 tl 
+    | CompartmentID_perm::tl    => has_compartmentID_perm perms1 && includes perms1 tl 
+    | MutableLoad_perm::tl      => has_mutable_load_perm perms1 && includes perms1 tl 
+    | User1_perm::tl            => has_user1_perm perms1 && includes perms1 tl 
+    | User2_perm::tl            => has_user2_perm perms1 && includes perms1 tl 
+    | User3_perm::tl            => has_user3_perm perms1 && includes perms1 tl 
+    | User4_perm::tl            => has_user4_perm perms1 && includes perms1 tl 
+    | Executive_perm::tl        => has_executive_perm perms1 && includes perms1 tl 
+    | Global_perm::tl           => has_global_perm perms1 && includes perms1 tl 
+    end.
+
   Definition list_perm_to_list_bool (perms: list perm) : list bool :=  
     let isLoad_perm : (perm -> bool) := fun p => match p with Load_perm => true | _ => false end in 
     let isStore_perm : (perm -> bool) := fun p => match p with Store_perm => true | _ => false end in 
@@ -460,13 +484,18 @@ Module Bounds <: PTRADDR_INTERVAL(AddressValue).
 
   Definition bound_len:N := 65.
   Definition t := ((bv bound_len) * (bv bound_len))%type.
+
   Definition of_Zs (bounds : Z * Z) : t :=
     let '(base,limit) := bounds in   
     (Z_to_bv bound_len base, Z_to_bv bound_len limit). 
+  
+  Definition of_addresses (a b : AddressValue.t) : t := 
+    of_Zs (AddressValue.to_Z a, AddressValue.to_Z b).
+
   Definition to_Zs (bounds : t) : Z * Z :=
     let (base,top) := bounds in   
     (bv_to_Z_unsigned base, bv_to_Z_unsigned top).
-
+  
   Definition address_is_in_interval (bounds:t) (value:AddressValue.t) : bool :=
     let '(base,limit) := bounds in 
     let value : (bv bound_len) := bv_to_bv value in 
@@ -662,6 +691,9 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 
   Definition cap_is_global (cap:t) : bool :=
     Permissions.has_global_perm (cap_get_perms cap).
+
+  Definition cap_permits (cap:t) (perms : list Permissions.perm) : bool := 
+    Permissions.includes (cap_get_perms cap) perms.
 
   Definition leq_perms (c1 c2 : t) : bool :=
     if (cap_is_global c1) && negb (cap_is_global c2) then false
