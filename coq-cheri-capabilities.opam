@@ -6,6 +6,7 @@ maintainer: ["ricardo.almeida@ed.ac.uk"]
 authors: ["Ricardo Almeida" "Vadim Zaliva"]
 license: "BSD-3-clause"
 homepage: "https://github.com/rems-project/coq-cheri-capabilities"
+version: "20230920"
 bug-reports: "https://github.com/rems-project/coq-cheri-capabilities/issues"
 depends: [
   "dune" {>= "3.7"}
