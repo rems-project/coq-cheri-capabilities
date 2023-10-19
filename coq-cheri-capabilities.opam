@@ -6,14 +6,14 @@ maintainer: ["ricardo.almeida@ed.ac.uk"]
 authors: ["Ricardo Almeida" "Vadim Zaliva"]
 license: "BSD-3-clause"
 homepage: "https://github.com/rems-project/coq-cheri-capabilities"
-version: "20230920"
+version: "20231019"
 bug-reports: "https://github.com/rems-project/coq-cheri-capabilities/issues"
 depends: [
   "dune" {>= "3.7"}
-  "coq" {< "8.17.0"}  # coq-bbv doesn't support latest versions
+  "coq"
   "coq-sail"
   "coq-ext-lib"
-  "coq-stdpp-unstable" {<= "dev.2023-08-03.3.4be5fd62"}
+  "coq-stdpp-unstable"
   "odoc" {with-doc}
 ]
 build: [
