@@ -7,12 +7,10 @@ Require Import Coq.ZArith.Zdigits.
 
 From stdpp.unstable Require Import bitvector. 
 
-Require Import Sail.Values.
-Require Import Sail.Operators_mwords.
+From Sail Require Import Base Values Values_lemmas Operators_mwords MachineWord Operators_mwords MachineWordInterface.
 
 From CheriCaps.Common Require Import Utils Addr Capabilities.
-
-Require Import CapFns.
+From CheriCaps Require Import CapFns.
 
 
 (** Notations and their definitions **)
@@ -1034,12 +1032,78 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Qed.
 
   Lemma eqb_eq : forall (a b:t), (a =? b) = true <-> a = b.
-  Proof. 
+  Proof.
     split.
     - intro H. unfold Capabilities.eqb in H. 
       apply Z.eqb_eq in H. apply bv_eq in H. exact H.
     - intro H. rewrite H. apply eqb_refl.
   Defined.  
+
+  (* TODO: move this to coq-sail *)
+  Lemma mwordOfInt_intOfMword_unsigned {n} (w : mword n) : 
+    n>0 -> mword_of_int(int_of_mword false w) = w.
+  Proof. intros. unfold int_of_mword. unfold mword_of_int. 
+    destruct n; try discriminate.  simpl.
+    unfold MachineWord.Z_to_word. unfold MachineWord.word_to_N.
+    rewrite Word.ZToWord_Z_of_N, Word.NToWord_wordToN. reflexivity.
+  Qed.
+
+  (* TODO: move this to coq-sail *)
+  Lemma mwordOfInt_ZToBv_intOfMword_unsigned {n} (m : mword n) : 
+    n>0 -> mword_of_int (bv_unsigned (Z_to_bv (Z.to_N n) (int_of_mword false m))) = m.
+  Proof.
+    intros. rewrite Z_to_bv_unsigned. 
+    unfold mword_to_Z_unsigned, bv_wrap, int_of_mword, get_word, bv_modulus. 
+    destruct n eqn:P; try discriminate. 
+    replace (Z.of_N (MachineWord.word_to_N m) mod _) with (Z.of_N (MachineWord.word_to_N m)).
+    - change ((Z.of_N (MachineWord.word_to_N m))) with (int_of_mword false m). apply mwordOfInt_intOfMword_unsigned; lia.
+    - symmetry; apply Z.mod_small. change 2 with (Z.of_N 2); rewrite <- N2Z.inj_pow.
+      rewrite <- N2Z.inj_lt. split; try lia.
+      replace (Z.to_N (Z.pos p)) with (N.of_nat (Z.to_nat n)); try lia.
+      assert (Q: (MachineWord.word_to_N m < 2 ^ N.of_nat (Pos.to_nat p))%N); try (apply MachineWord.word_to_N_range).
+      rewrite P. replace (Z.to_nat (Z.pos p)) with (Pos.to_nat p). { exact Q. } { lia. }
+      Qed.
+      
+  Lemma mword129_to_bv_to_mword (m : mword 129) : 
+    bv_to_mword (mword_to_bv m) = m.
+  Proof.
+    unfold mword_to_bv, bv_to_mword, mword_to_Z_unsigned.
+    apply mwordOfInt_ZToBv_intOfMword_unsigned; lia.
+  Qed.
+  
+  Lemma mword_to_bv_to_mword {n} (m : mword n) : 
+    n>0 -> ∃ (m' : mword (Z.of_N (Z.to_N n))), bv_to_mword (mword_to_bv m) = m' /\ 
+    (mword_to_Z_unsigned m = mword_to_Z_unsigned m').
+  Proof.
+    intros. 
+    unfold mword_to_bv, bv_to_mword, mword_to_Z_unsigned.
+    exists (mword_of_int (bv_unsigned (Z_to_bv (Z.to_N n) (int_of_mword false m)))). split.
+    - reflexivity. 
+    - replace (Z.of_N (Z.to_N n)) with n; try lia. apply f_equal. symmetry. 
+      apply mwordOfInt_ZToBv_intOfMword_unsigned. auto.
+  Qed.
+
+  Lemma mword129_to_bv_to_mword_alt (m : mword 129) : 
+    bv_to_mword (mword_to_bv m) = m.
+  Proof.
+    assert (H: ∃ (m' : mword (Z.of_N (Z.to_N 129))), bv_to_mword (mword_to_bv m) = m' /\ 
+    (mword_to_Z_unsigned m = mword_to_Z_unsigned m')); try (apply mword_to_bv_to_mword); try lia.
+    vm_compute (Z.of_N (Z.to_N 129)) in H.  
+    destruct H as [ m' [ B C ] ]. rewrite B. 
+    unfold mword_to_Z_unsigned, int_of_mword in C. apply N2Z.inj in C.  
+    unfold MachineWord.word_to_N in C. simpl in C.
+    apply Word.wordToN_inj in C. done.
+  Qed.
+  
+  Lemma cap_invalidate_invalidates (c:t): cap_is_valid (cap_invalidate c) = false.
+  Proof.
+    unfold cap_invalidate, cap_is_valid.
+    rewrite eqb_false_iff, not_false_iff_true, mword129_to_bv_to_mword.
+    unfold CapIsTagClear, CapWithTagClear.
+    rewrite eq_vec_true_iff. simpl.
+    unfold CapGetTag, CapSetTag, CAP_TAG_BIT. 
+    vm_compute (access_vec_dec (zero_extend _ _) 0). vm_compute. reflexivity.
+  Qed.
 
 End Capability.  
 

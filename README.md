@@ -4,9 +4,7 @@ This repository contains an abstract Coq implementation of CHERI capabilities, a
 
 # Building and Installing
 
-1. We recommend using opam (OCaml's package manager) to build the source code. If you don't yet have it installed, you can use your system's package manager (e.g. `sudo apt-get install opam` on Ubuntu 20.04) to install it, or follow the [instructions from the opam website](https://opam.ocaml.org/doc/Install.html). On older versions of Ubuntu, such as 18.04, you will not be able
-to use opam from the package manager and will need to install it
-following the instructions on opam's website.
+1. We recommend using opam (OCaml's package manager) to build the source code. If you don't yet have it installed, you can use your system's package manager (e.g. `sudo apt-get install opam` on Ubuntu 20.04) to install it, or follow the [instructions from the opam website](https://opam.ocaml.org/doc/Install.html). On older versions of Ubuntu, such as 18.04, you will not be able to use opam from the package manager and will need to install it following the instructions on opam's website.
 
 2. With opam installed, if you don't yet have an opam switch then you can create one using (here we're using OCaml 4.14.1)
 ```
