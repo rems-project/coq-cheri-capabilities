@@ -11,7 +11,7 @@ Require Import Coq.Strings.Ascii.
 
 Import ListNotations.
 
-From Sail Require Import Values.
+From SailStdpp Require Import Values.
 
 Local Open Scope list_scope.
 Local Open Scope string_scope.
@@ -122,16 +122,6 @@ Fixpoint List_bool_eqb (l1:list bool) (l2:list bool) : bool :=
   | (_,[]) => false 
   | (h1::t1,h2::t2) => (Bool.eqb h1 h2) && List_bool_eqb t1 t2
   end.
-
-Fixpoint word_to_list_bool {n} w :=
-  match w with
-  | Word.WO => []
-  | Word.WS b w => b :: word_to_list_bool w
-  end.
-
-(* Stores less-significant bits in lower indices *)
-Definition mword_to_list_bool {n} (w : mword n) : list bool := 
-  word_to_list_bool (get_word w). 
   
 Definition string_of_bool (b:bool) :=
   match b with

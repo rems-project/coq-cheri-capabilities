@@ -11,7 +11,7 @@ bug-reports: "https://github.com/rems-project/coq-cheri-capabilities/issues"
 depends: [
   "dune" {>= "3.7"}
   "coq"
-  "coq-sail"
+  "coq-sail-stdpp"
   "coq-ext-lib"
   "coq-stdpp-unstable"
   "odoc" {with-doc}

@@ -18,7 +18,7 @@
  )
  (depends 
  	(coq (< 8.17.0))
-  coq-sail
+  coq-sail-stdpp
   coq-ext-lib
   (coq-stdpp-unstable (= dev.2023-02-17.2.2d8ccea3))
  )

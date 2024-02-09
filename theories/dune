@@ -1,6 +1,6 @@
-(include_subdirs qualified)
+; (include_subdirs qualified)
 (coq.theory
  (name CheriCaps)
  (package coq-cheri-capabilities)
- (theories stdpp Sail bbv ExtLib)
+ (theories stdpp SailStdpp bbv ExtLib)
 )
