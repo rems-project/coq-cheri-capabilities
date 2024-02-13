@@ -1124,7 +1124,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 End Capability.  
 
 
-(* Module TestCaps.
+Module ExampleCaps.
 
   (* c1 corresponds to https://www.morello-project.org/capinfo?c=1900000007f1cff1500000000ffffff15 *)
   Definition c1:Capability.t := Capability.of_Z 0x1900000007f1cff1500000000ffffff15.
@@ -1140,4 +1140,4 @@ End Capability.
   Definition c3_bytes := ["208"%char;"230"%char;"255"%char;"255"%char;"000"%char;"000"%char;"000"%char;
     "042"%char;"208"%char;"230"%char;"212"%char;"102"%char;"000"%char;"000"%char;"000"%char;"220"%char].
   
-End TestCaps. *)
+End ExampleCaps.
