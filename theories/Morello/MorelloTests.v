@@ -50,6 +50,12 @@ Module test_cap_getters_and_setters.
   Definition perm_Load_Store : Permissions.t := Permissions.make_permissions [Permissions.Load_perm; Permissions.Store_perm].
   Definition perm_Load_Execute : Permissions.t := Permissions.make_permissions [Permissions.Load_perm; Permissions.Execute_perm].
   
+  Example of_bvn_test_1 : 
+    let drop_tag c : mword 128 := of_bools (List.tail (List.rev (bv_to_bits c))) in
+    let drop_tag_bvn c := bv_to_bvn (drop_tag c) in
+    of_bvn (drop_tag_bvn c1) true = Some c1 /\ of_bvn (drop_tag_bvn c2) true = Some c2 /\ of_bvn (drop_tag_bvn c3) true = Some c3 /\ of_bvn (drop_tag_bvn c4) true = Some c4 /\ of_bvn (drop_tag_bvn c5) true = Some c5 /\ of_bvn (drop_tag_bvn c6) true = Some c6 /\ of_bvn (drop_tag_bvn c7) true = Some c7 /\ of_bvn (drop_tag_bvn c8) true = Some c8.
+  Proof. repeat (try split; try vm_compute; try (apply f_equal); try bv_solve). Qed.
+
   Example is_valid_test_1 : cap_is_valid c1 = true.
     Proof. reflexivity. Qed.
 

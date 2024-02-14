@@ -524,6 +524,20 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition t := bv len.
   
   Definition of_Z (z:Z) : t := Z_to_bv len z.
+
+  Definition of_bvn (b:bvn) (tag:bool) : option t := 
+    if (b.(bvn_n) =? (len-1))%N then 
+      let bits : (list bool) := tag::(bools_of_int (Z.of_N len-1) b.(bvn_val).(bv_unsigned)) in
+      let bitsu := List.map bitU_of_bool bits in
+      let w : (mword _) := vec_of_bits bitsu in
+      let z : Z := int_of_mword false w in 
+      let c : option t := Z_to_bv_checked len z in 
+      match c with 
+        Some c => Some c
+      | None   => None
+      end
+    else 
+      None.
      
   Definition cap_SEAL_TYPE_UNSEALED : ObjType.t := ObjType.of_Z 0.
   Definition cap_SEAL_TYPE_RB : ObjType.t := ObjType.of_Z 1. 
@@ -906,20 +920,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
             -- unfold bits. rewrite list.cons_length. rewrite Q. reflexivity. 
             -- unfold bitsu. unfold length_list. rewrite map_length. rewrite R. reflexivity.
     Defined. *)  
-
-  (* Definition of_bvn (b:bvn) (tag:bool) : option t := 
-    if (b.(bvn_n) =? (len-1))%N then 
-      let bits : (list bool) := tag::(bools_of_int (Z.of_N len-1) b.(bvn_val).(bv_unsigned)) in
-      let bitsu := List.map bitU_of_bool bits in
-      let w : (mword _) := vec_of_bits bitsu in
-      let z : Z := mword_to_Z_unsigned w in 
-      let c : option t := Z_to_bv_checked len z in 
-      match c with 
-        Some c => Some c
-      | None   => None
-      end
-    else 
-      None. *)
 
   Definition eqb_cap (cap1:t) (cap2:t) : bool := cap1 =? cap2.
 
