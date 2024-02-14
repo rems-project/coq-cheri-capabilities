@@ -5,7 +5,7 @@ Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
 Require Import Coq.ZArith.Zdigits.
 
-From stdpp.unstable Require Import bitvector bitvector_tactics. 
+From stdpp.unstable Require Import bitvector bitvector_tactics bitblast. 
 
 From SailStdpp Require Import Base Values Values_lemmas Operators_mwords MachineWord Operators_mwords MachineWordInterface.
 
@@ -1031,96 +1031,23 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       apply Z.eqb_eq in H. apply bv_eq in H. exact H.
     - intro H. rewrite H. apply eqb_refl.
   Defined.  
-
-  Lemma mwordOfInt_intOfMword_unsigned {n} (w : mword n) : 
-    (n>0)%Z -> mword_of_int(int_of_mword false w) = w.
-  Proof. intros. unfold int_of_mword. unfold mword_of_int. 
-    destruct n; try discriminate.  simpl.
-    unfold MachineWord.Z_to_word. unfold MachineWord.word_to_N.
-    Admitted.
-    (* rewrite Word.ZToWord_Z_of_N, Word.NToWord_wordToN. reflexivity.
-  Qed. *)
-
-  Lemma mwordOfInt_ZToBv_intOfMword_unsigned {n} (m : mword n) : 
-    (n>0)%Z -> mword_of_int (bv_unsigned (Z_to_bv (Z.to_N n) (int_of_mword false m))) = m.
-  Proof.
-    Admitted.
-    (* intros. rewrite Z_to_bv_unsigned. 
-    unfold mword_to_Z_unsigned, bv_wrap, int_of_mword, get_word, bv_modulus. 
-    destruct n eqn:P; try discriminate. 
-    replace (Z.of_N (MachineWord.word_to_N m) mod _) with (Z.of_N (MachineWord.word_to_N m)).
-    - change ((Z.of_N (MachineWord.word_to_N m))) with (int_of_mword false m). apply mwordOfInt_intOfMword_unsigned; lia.
-    - symmetry; apply Z.mod_small. change 2 with (Z.of_N 2); rewrite <- N2Z.inj_pow.
-      rewrite <- N2Z.inj_lt. split; try lia.
-      replace (Z.to_N (Z.pos p)) with (N.of_nat (Z.to_nat n)); try lia.
-      assert (Q: (MachineWord.word_to_N m < 2 ^ N.of_nat (Pos.to_nat p))%N); try (apply MachineWord.word_to_N_range).
-      rewrite P. replace (Z.to_nat (Z.pos p)) with (Pos.to_nat p). { exact Q. } { lia. }
-      Qed. *)
-      
-  Lemma mword129_to_bv_to_mword (m : mword 129) : 
-    bv_to_mword (mword_to_bv m) = m.
-  Proof.
-    Admitted.
-    (* unfold mword_to_bv, bv_to_mword, mword_to_Z_unsigned.
-    apply mwordOfInt_ZToBv_intOfMword_unsigned; lia. 
-  Qed.*)
-  
-  (* Lemma mword_to_bv_to_mword {n} (m : mword n) : 
-    n>0 -> ∃ (m' : mword (Z.of_N (Z.to_N n))), bv_to_mword (mword_to_bv m) = m' /\ 
-    (mword_to_Z_unsigned m = mword_to_Z_unsigned m').
-  Proof.
-    intros. 
-    unfold mword_to_bv, bv_to_mword, mword_to_Z_unsigned.
-    exists (mword_of_int (bv_unsigned (Z_to_bv (Z.to_N n) (int_of_mword false m)))). split.
-    - reflexivity. 
-    - replace (Z.of_N (Z.to_N n)) with n; try lia. apply f_equal. symmetry. 
-      apply mwordOfInt_ZToBv_intOfMword_unsigned. auto.
-  Qed. *)
-
-  (* Lemma mword129_to_bv_to_mword_alt (m : mword 129) : 
-    bv_to_mword (mword_to_bv m) = m.
-  Proof.
-    assert (H: ∃ (m' : mword (Z.of_N (Z.to_N 129))), bv_to_mword (mword_to_bv m) = m' /\ 
-    (mword_to_Z_unsigned m = mword_to_Z_unsigned m')); try (apply mword_to_bv_to_mword); try lia.
-    vm_compute (Z.of_N (Z.to_N 129)) in H.  
-    destruct H as [ m' [ B C ] ]. rewrite B. 
-    unfold mword_to_Z_unsigned, int_of_mword in C. apply N2Z.inj in C.  
-    unfold MachineWord.word_to_N in C. simpl in C.
-    Admitted. *)
-    (* apply Word.wordToN_inj in C. done.
-  Qed. *)
   
   Lemma cap_invalidate_invalidates (c:t) : cap_is_valid (cap_invalidate c) = false.
   Proof.
     unfold cap_invalidate, cap_is_valid.
     rewrite eqb_false_iff, not_false_iff_true.
     unfold CapIsTagClear, CapWithTagClear.
-    rewrite eq_vec_true_iff.
-    (* vm_compute (Pos.to_nat 1 'b "0"). *)
-    vm_compute (zero_extend _ _).
-    vm_compute (Pos.to_nat 1 'b "0").
-    unfold CapGetTag, CapSetTag, CAP_TAG_BIT.
-    vm_compute (Bit (vec_of_bits [access_vec_dec _ 0])).
-    unfold update_vec_dec. simpl. 
-    unfold access_vec_dec. unfold access_mword_dec.
+    rewrite eq_vec_true_iff.    
+    unfold CapGetTag, CapSetTag, CAP_TAG_BIT.     
+    change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.    
+    unfold update_vec_dec, access_vec_dec, access_mword_dec.
     simpl (get_word _).
-    vm_compute (Z.to_nat _).
-    Search (MachineWord.set_bit _ _ _).
-    unfold MachineWord.set_bit.
-    Search MachineWord.update_slice.
-    unfold MachineWord.get_bit.
-    vm_compute (bool_to_bv (N.of_nat 1) false).
-    vm_compute (Z.of_nat _).
-    unfold MachineWord.update_slice.
-    unfold MachineWord.slice.
-    vm_compute (N.of_nat _).
-    replace (bv_extract 129 0 c) with (bv_0 0).
-    2:{ bv_simplify. admit.  }
-        
-     Admitted.  
-    (* vm_compute (access_vec_dec (zero_extend _ _) 0). vm_compute. reflexivity. *)
-  (* Qed. *)
-
+    unfold MachineWord.set_bit, MachineWord.get_bit, MachineWord.update_slice, MachineWord.slice, MachineWord.zero_extend.
+    bv_simplify.
+    bitblast.
+  Qed.
+    
+  
 End Capability.  
 
 
