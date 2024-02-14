@@ -12,7 +12,7 @@ jobs:
       - run: eval $(opam env --switch=default)
       - run: opam repo add --yes --this-switch coq-released https://coq.inria.fr/opam/released
       - run: opam repo add --yes  --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-      - run: opam pin --yes -n coq-sail https://github.com/rems-project/coq-sail.git
+      - run: opam pin --yes -n coq-sail-stdpp https://github.com/rems-project/coq-sail.git
       - run: opam install --yes ./coq-cheri-capabilities.opam
       - run: eval $(opam env)
 
