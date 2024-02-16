@@ -1046,7 +1046,37 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     bv_simplify.
     bitblast.
   Qed.
-    
+
+  Lemma cap_invalidate_preserves_value (c:t) : cap_get_value c = cap_get_value (cap_invalidate c).
+  Proof.
+    unfold cap_get_value, cap_invalidate, CapGetValue, CapWithTagClear, CapSetTag, CAP_VALUE_HI_BIT, CAP_VALUE_LO_BIT, CAP_TAG_BIT.
+    unfold subrange_vec_dec, autocast. simpl. bv_simplify.
+    change (Z.to_nat 0) with 0%nat.
+    change (Z.to_nat 64) with 64%nat.
+    change (Pos.to_nat 1) with 1%nat. 
+    unfold MachineWord.slice, MachineWord.zero_extend, MachineWord.N_to_word. simpl.
+    apply f_equal. 
+    change (N.of_nat 0) with 0%N.
+    change (N.of_nat 64) with 64%N.
+    change (N.of_nat 1) with 1%N.
+    change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.
+    unfold update_vec_dec, update_mword_dec. simpl. 
+    change (Z.to_nat 128) with 128%nat.
+    unfold MachineWord.set_bit, MachineWord.update_slice, MachineWord.slice. simpl.
+    change (N.of_nat (Z.to_nat 129)) with 129%N.
+    change (N.of_nat 129) with 129%N.
+    change (N.of_nat 0) with 0%N.
+    change (N.of_nat 1) with 1%N.
+    change (N.of_nat 128) with 128%N.
+    replace (bool_to_bv 1 false) with (bv_0 1); [| vm_compute; bv_solve].
+    replace (bv_extract _ 0 _) with (bv_0 0); [| bv_simplify; bitblast].
+    bv_simplify.    
+    rewrite bv_zero_extend_idemp.
+    change (bv_zero_extend _ _) with (bv_concat 129 (bv_0 1) (bv_extract 0 128 c)).
+    replace (bv_extract _ _ (bv_concat _ _ _)) with (bv_extract 0 64 (bv_extract 0 128 c)); [| bv_simplify; reflexivity].
+    replace (bv_extract _ _ (bv_extract _ _ _)) with (bv_extract 0 64 c); [| bv_simplify; rewrite bv_extract_0_unsigned; rewrite bv_extract_0_unsigned; bv_simplify; reflexivity]. 
+    reflexivity.
+    Qed.
   
 End Capability.  
 
@@ -1057,7 +1087,7 @@ Module ExampleCaps.
   Definition c1:Capability.t := Capability.of_Z 0x1900000007f1cff1500000000ffffff15.
   Definition c1_bytes : list ascii := List.map ascii_of_nat (List.map Z.to_nat 
     [0x15;0xff;0xff;0xff;0;0;0;0;0x15;0xff;0x1c;0x7f;0;0;0;0x90]%Z).
-
+  
   (* c2 corresponds to https://www.morello-project.org/capinfo?c=1d800000066f4e6ec00000000ffffe6ec *)
   Definition c2:Capability.t := Capability.of_Z 0x1d800000066f4e6ec00000000ffffe6ec.
   Definition c2_bytes : list ascii := List.map ascii_of_nat (List.map Z.to_nat (
