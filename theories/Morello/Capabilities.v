@@ -1083,7 +1083,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     unfold cap_get_bounds, cap_get_bounds_, cap_invalidate.
     assert (H: CapGetBounds c = CapGetBounds (CapWithTagClear c)).
     { unfold CapGetBounds. destruct (CapGetExponent c =? CAP_MAX_ENCODEABLE_EXPONENT)%Z eqn:P.
-      -   simpl. CapWithTagClear. simpl. }
+      -   simpl. 
+      Admitted.
   
 End Capability.  
 
