@@ -1077,6 +1077,13 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     replace (bv_extract _ _ (bv_extract _ _ _)) with (bv_extract 0 64 c); [| bv_simplify; rewrite bv_extract_0_unsigned; rewrite bv_extract_0_unsigned; bv_simplify; reflexivity]. 
     reflexivity.
     Qed.
+
+  Lemma cap_invalidate_preserves_bounds (c:t) : cap_get_bounds c = cap_get_bounds (cap_invalidate c).
+  Proof.
+    unfold cap_get_bounds, cap_get_bounds_, cap_invalidate.
+    assert (H: CapGetBounds c = CapGetBounds (CapWithTagClear c)).
+    { unfold CapGetBounds. destruct (CapGetExponent c =? CAP_MAX_ENCODEABLE_EXPONENT)%Z eqn:P.
+      -   simpl. CapWithTagClear. simpl. }
   
 End Capability.  
 
