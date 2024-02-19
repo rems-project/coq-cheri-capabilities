@@ -19,13 +19,6 @@ Local Open Scope Z_scope.
 Local Open Scope bool_scope.
 
 
-Fixpoint list_init {A:Type} (n:nat) (f:nat -> A): list A
-  :=
-  match n with
-  | O => []
-  | S n => (f n) :: list_init n f
-  end.
-
 (** Inlike OCaml version if lists have different sizes, we just terminate
     after consuming the shortest one, without signaling error *)
 Fixpoint fold_left2 {A B C:Type} (f: A -> B -> C -> A) (accu:A) (l1:list B) (l2:list C): A :=
