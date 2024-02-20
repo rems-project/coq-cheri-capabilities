@@ -17,7 +17,7 @@
               "\| and a concrete one for the Morello architecture.
  )
  (depends 
- 	(coq )
+ 	coq 
  	(coq-stdpp (= dev.2023-12-26.0.dd93e4c3))
   coq-sail-stdpp
   coq-ext-lib
