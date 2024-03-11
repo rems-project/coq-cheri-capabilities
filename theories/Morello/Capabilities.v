@@ -630,9 +630,9 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let new_cap := CapClearPerms c mask_inv in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
 
-  Definition cap_clear_global_perm (cap:t) : t := 
-    cap_narrow_perms cap ((Permissions.make_permissions [Permissions.Global_perm])).
-
+  Definition cap_clear_global_perm (cap:t) : t :=     
+    cap_narrow_perms cap (Permissions.perm_clear_global (cap_get_perms cap)).
+    
   Definition cap_set_bounds (c : t) (bounds : Bounds.t) (exact : bool) : t :=
     (* CapSetBounds sets the lower bound to the value of the input cap,
        so we first have to set the value of cap to bounds.base. *)
@@ -1041,7 +1041,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     unfold CapGetTag, CapSetTag, CAP_TAG_BIT.     
     change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.    
     unfold update_vec_dec, access_vec_dec, access_mword_dec.
-    simpl (get_word _).
+    simpl (get_word _). 
     unfold MachineWord.set_bit, MachineWord.get_bit, MachineWord.update_slice, MachineWord.slice, MachineWord.zero_extend.
     bv_simplify.
     bitblast.
@@ -1078,12 +1078,33 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     reflexivity.
     Qed.
 
+  Lemma subrange_vec_dec_after_clear_tag (c:t) (hi lo : Z) :
+    let c : mword 129 := c in
+    (hi <? 128)%Z -> (lo <? hi)%Z ->
+    subrange_vec_dec c hi lo = subrange_vec_dec (CapWithTagClear c) hi lo.
+  Proof.
+    intros x H J. 
+    assert (Hp: (hi < 128)%Z); [ apply Is_true_eq_true in H; lia |].
+    unfold subrange_vec_dec, CapWithTagClear, CapSetTag, CAP_TAG_BIT, autocast. 
+    simpl. bv_simplify.
+    destruct (Z.eq_dec _ _); [| reflexivity].
+    unfold MachineWord.slice, MachineWord.zero_extend, MachineWord.N_to_word. simpl.
+    change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.
+    unfold update_vec_dec, update_mword_dec. simpl. 
+    unfold MachineWord.set_bit, MachineWord.update_slice, MachineWord.slice. simpl.
+    replace (bv_extract _ 0 _) with (bv_0 0); [| bv_simplify; bitblast].
+    bv_simplify.    
+    rewrite bv_zero_extend_idemp.
+    change (bv_zero_extend _ _) with (bv_concat 129 (bv_0 1) (bv_extract 0 128 c)).
+    replace (N.of_nat (Z.to_nat lo)) with (Z.to_N lo); [| rewrite Z_nat_N; reflexivity].
+    replace (bv_extract _ _ (bv_concat _ _ _)) with (bv_extract (Z.to_N lo) (N.of_nat (Z.to_nat hi - Z.to_nat lo + 1)) (bv_extract 0 128 c)); [| bv_simplify; reflexivity].
+    set (len := (N.of_nat (Z.to_nat hi - Z.to_nat lo + 1))).
+    replace (bv_extract _ _ (bv_extract _ _ _)) with (bv_extract (Z.to_N lo) len c). reflexivity.
+    bv_simplify. rewrite bv_extract_unsigned. rewrite bv_extract_unsigned. bv_simplify.  bitblast.       
+    Qed.  
+
   Lemma cap_invalidate_preserves_bounds (c:t) : cap_get_bounds c = cap_get_bounds (cap_invalidate c).
   Proof.
-    unfold cap_get_bounds, cap_get_bounds_, cap_invalidate.
-    assert (H: CapGetBounds c = CapGetBounds (CapWithTagClear c)).
-    { unfold CapGetBounds. destruct (CapGetExponent c =? CAP_MAX_ENCODEABLE_EXPONENT)%Z eqn:P.
-      -   simpl. 
       Admitted.
   
 End Capability.  

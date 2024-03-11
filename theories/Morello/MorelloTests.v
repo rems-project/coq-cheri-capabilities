@@ -40,6 +40,7 @@ Module test_cap_getters_and_setters.
   Definition c6:Capability.t := Capability.of_Z 0x1fb0000007a4700000000000000003333. (* Cap breakdown: https://www.morello-project.org/capinfo?c=0x1%3Afb0000007a470000%3A0000000000003333 *)
   Definition c7:Capability.t := Capability.of_Z 0x14C0000007F1CFF1500000000FFFFFF15.
   Definition c8:Capability.t := Capability.of_Z 0x1900000007f1cff1500000000ffffff15.
+  Definition c9:Capability.t := Capability.of_Z 0x1ffffb000000000000000000000000000. (* Cap breakdown: https://www.morello-project.org/capinfo?c=0x1ffffb000000000000000000000000000 *)
   
   Program Definition flags1:Flags.t := exist _ [false; false; false; false; false; false; false; false] _. 
     Next Obligation. reflexivity. Defined.
@@ -119,10 +120,14 @@ Module test_cap_getters_and_setters.
     let perms := perm_clear_user3 perms in 
     let perms := perm_clear_user2 perms in 
     let perms := perm_clear_user1 perms in 
-    let perms := Permissions.of_list ((Permissions.to_list perms)) in
-    let capB := (cap_narrow_perms c1 (match perms with Some p => p | None => Permissions.perm_Universal end)) in
+    let capB := (cap_narrow_perms c1 perms) in
     capA = capB.
     Proof. vm_compute. reflexivity. Qed.
+
+  Example permissions_test_6 : 
+    let perms := perm_clear_global (cap_get_perms c1) in 
+    perms = cap_get_perms c9 /\ perms ≠ cap_get_perms c1.
+    Proof. vm_compute. split. bv_solve. discriminate. Qed.    
 
   Example get_and_user_perms_test_1 : 
     let user_perms_A : (list bool) := get_user_perms (cap_get_perms (cap_cU ())) in 
