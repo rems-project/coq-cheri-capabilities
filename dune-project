@@ -17,10 +17,11 @@
               "\| and a concrete one for the Morello architecture.
  )
  (depends 
- 	(coq (< 8.17.0))
-  coq-sail
+ 	coq 
+ 	(coq-stdpp (= dev.2023-12-26.0.dd93e4c3))
+  coq-sail-stdpp
   coq-ext-lib
-  (coq-stdpp-unstable (= dev.2023-02-17.2.2d8ccea3))
+  (coq-stdpp-unstable (>= dev.2023-02-17.2.2d8ccea3))
  )
 )
 

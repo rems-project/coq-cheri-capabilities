@@ -12,11 +12,11 @@ opam switch create coq-cheri-capabilities 4.14.1
 ```
 Make sure to run `eval $(opam env --switch=coq-cheri-capabilities)` (or whichever exact command opam suggests) at the end to update your current shell environment.
 
-3. With an opam switch created, you must add the Coq and the Iris repositories, and pin the coq-sail package, as follows: 
+3. With an opam switch created, you must add the Coq and the Iris repositories, and pin the coq-sail-stdpp package, as follows: 
 ```
 opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
 opam repo add --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-opam pin -n coq-sail https://github.com/rems-project/coq-sail.git
+opam pin -n coq-sail-stdpp https://github.com/rems-project/coq-sail.git
 ```
 
 4. You may now install the opam package `coq-cheri-capabilities` and its dependencies with

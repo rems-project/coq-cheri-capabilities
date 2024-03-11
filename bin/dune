@@ -1,3 +1,4 @@
 (executable
+ (public_name coq_cheri_capabilities)
  (name main)
 (libraries coq_cheri_capabilities))
