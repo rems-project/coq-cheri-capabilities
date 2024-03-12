@@ -1,0 +1,5 @@
+(coq.theory
+ (name CheriCaps.Common)
+ (package coq-cheri-capabilities)
+ (theories stdpp SailStdpp ExtLib)
+)
