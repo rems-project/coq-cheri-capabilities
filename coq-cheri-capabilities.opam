@@ -32,3 +32,7 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/rems-project/coq-cheri-capabilities.git"
+tags: [
+  "logpath:CheriCaps"
+  "category:Computer Science/Semantics and Compilation/Semantics"
+]

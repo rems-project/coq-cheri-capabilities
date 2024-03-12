@@ -2,5 +2,5 @@
 (coq.theory
  (name CheriCaps)
  (package coq-cheri-capabilities)
- (theories stdpp SailStdpp bbv ExtLib)
+ (theories stdpp SailStdpp ExtLib)
 )
