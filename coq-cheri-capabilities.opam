@@ -31,4 +31,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/rems-project/coq-cheri-capabilities.git#replacing_coq-sail_with_coq-sail-stdpp"
+dev-repo: "git+https://github.com/rems-project/coq-cheri-capabilities.git"
