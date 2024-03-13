@@ -3,7 +3,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
-Require Import Coq.ZArith.Zdigits.
 
 From stdpp.unstable Require Import bitvector bitvector_tactics bitblast. 
 
@@ -383,14 +382,10 @@ Module AddressValue <: PTRADDR.
   Definition with_offset (v:t) (o:Z) : t :=
     of_Z (to_Z v + o).
 
-  Definition bitwise_complement_Z (a:Z) : Z :=
-    let bits := Z_to_binary (N.to_nat len) a in
-    let bits := Vector.map negb bits in
-    binary_value _ bits.
-
-  Definition bitwise_complement (a:t) : t :=
-    of_Z (bitwise_complement_Z (to_Z a)).
-
+  Definition bitwise_complement_Z (a:Z) : Z := Z.lnot a.
+    
+  Definition bitwise_complement (a:t) : t := bv_not a.
+    
   Definition eqb (v1:t) (v2:t) : bool := Capabilities.eqb v1 v2.
   Definition ltb (v1:t) (v2:t) : bool := Capabilities.ltb v1 v2.
   Definition leb (v1:t) (v2:t) : bool := Capabilities.leb v1 v2.

@@ -4,7 +4,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
-Require Import Coq.ZArith.Zdigits.
 
 From stdpp.unstable Require Import bitvector bitvector_tactics. 
 From SailStdpp Require Import Values Operators_mwords.
