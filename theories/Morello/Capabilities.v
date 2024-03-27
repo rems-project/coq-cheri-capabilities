@@ -1098,9 +1098,9 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     bv_simplify. rewrite bv_extract_unsigned. rewrite bv_extract_unsigned. bv_simplify.  bitblast.       
     Qed.  
 
-  Lemma cap_invalidate_preserves_bounds (c:t) : cap_get_bounds c = cap_get_bounds (cap_invalidate c).
+  (* Lemma cap_invalidate_preserves_bounds (c:t) : cap_get_bounds c = cap_get_bounds (cap_invalidate c).
   Proof.
-      Admitted.
+      Admitted. *)
   
 End Capability.  
 
