@@ -372,12 +372,26 @@ Module Permissions <: PERMISSIONS.
 End Permissions.
 
 
+(* Fixed-width integer addresses *)
 Module AddressValue <: PTRADDR.
 
   Definition len:N := 64.
   Definition t := bv len.
 
+  (** Upper address bound. Non inclusive. *)
+  Definition UPPER_ADDR_BOUND := bv_modulus len.
+  (** Lower address bound. Inclusive *)
+  Definition MIN_ADDR := 0%Z.
+
   Definition of_Z (z:Z) : t := Z_to_bv len z.
+
+  (** Attempts to conver given integer value to address.
+      Returns None if value is outside [MIN_ADDR,UPPER_ADDR_BOUND) interval *)
+  Definition of_Z_safe (z:Z) : option t
+    := if (Z.leb MIN_ADDR z) && (Z.ltb z UPPER_ADDR_BOUND)
+       then Some (of_Z z)
+       else None.
+
   Definition to_Z (v:t) : Z := bv_to_Z_unsigned v.
   Definition with_offset (v:t) (o:Z) : t :=
     of_Z (to_Z v + o).
@@ -391,8 +405,8 @@ Module AddressValue <: PTRADDR.
   Definition leb (v1:t) (v2:t) : bool := Capabilities.leb v1 v2.
 
   Definition to_string (v:t) : string := HexString.of_Z (bv_to_Z_unsigned v).
-  
-  Definition ltb_irref: forall a:t, ltb a a = false.
+
+  Lemma ltb_irref: forall a:t, ltb a a = false.
   Proof. intros. unfold ltb. unfold Capabilities.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
 
   Global Instance morello_address_eq_dec : EqDecision t.
@@ -400,6 +414,53 @@ Module AddressValue <: PTRADDR.
   
   Global Instance morello_address_countable : countable.Countable t.
   Proof. unfold t. apply bv_countable. Defined.
+
+  (* Some properties related to bounds *)
+
+  (** Value returned by [to_Z] is in bounds *)
+  Lemma to_Z_in_bounds:
+    forall (a:t), Z.le MIN_ADDR (to_Z a) /\ Z.lt (to_Z a) UPPER_ADDR_BOUND.
+  Proof.
+    intros a.
+    apply bv_unsigned_in_range.
+  Qed.
+
+  (** [of_Z_safe] returns [Some (of_Z z)] when in bounds *)
+  Lemma of_Z_safe_in:
+    forall z,
+      (Z.le MIN_ADDR z /\ Z.lt z UPPER_ADDR_BOUND) -> of_Z_safe z = Some (of_Z z).
+  Proof.
+    intros z [Pl Pu].
+    unfold of_Z_safe.
+    destruct (Z.leb MIN_ADDR z) eqn:Hl, (Z.ltb z UPPER_ADDR_BOUND) eqn:Hu; cbv.
+    - reflexivity.
+    - apply Z.ltb_ge in Hu; lia.
+    - apply Z.leb_gt in Hl; lia.
+    - apply Z.ltb_ge in Hu; lia.
+  Qed.
+
+  (** [of_Z_safe] returns None when outside bounds *)
+  Lemma of_Z_safe_out:
+    forall z,
+      (Z.lt z MIN_ADDR \/ Z.le UPPER_ADDR_BOUND z) -> of_Z_safe z = None.
+  Proof.
+    unfold of_Z_safe.
+    intros z [L | H]; destruct (Z.leb MIN_ADDR z) eqn:Hl, (Z.ltb z UPPER_ADDR_BOUND) eqn:Hu;
+      cbv; try reflexivity.
+    1,2: apply Zle_bool_imp_le in Hl; lia.
+  Qed.
+
+  (** For Z values within address range, roundtip from Z and back is an identity *)
+  Lemma of_Z_roundtrip:
+    forall z,
+      (Z.le MIN_ADDR z /\ Z.lt z UPPER_ADDR_BOUND) -> to_Z (of_Z z) = z.
+  Proof.
+    intros z H.
+    unfold of_Z, to_Z, bv_to_Z_unsigned.
+    unfold MIN_ADDR, UPPER_ADDR_BOUND in *.
+    apply Z_to_bv_small.
+    destruct (Z.leb MIN_ADDR z) eqn:Hl, (Z.ltb z UPPER_ADDR_BOUND) eqn:Hu; split; try lia.
+  Qed.
 
 End AddressValue.
 
