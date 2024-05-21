@@ -379,16 +379,16 @@ Module AddressValue <: PTRADDR.
   Definition t := bv len.
 
   (** Upper address bound. Non inclusive. *)
-  Definition UPPER_ADDR_BOUND := bv_modulus len.
+  Definition ADDR_LIMIT := bv_modulus len.
   (** Lower address bound. Inclusive *)
-  Definition MIN_ADDR := 0%Z.
+  Definition ADDR_MIN := 0%Z.
 
   Definition of_Z (z:Z) : t := Z_to_bv len z.
 
   (** Attempts to conver given integer value to address.
-      Returns None if value is outside [MIN_ADDR,UPPER_ADDR_BOUND) interval *)
+      Returns None if value is outside [ADDR_MIN,ADDR_LIMIT) interval *)
   Definition of_Z_safe (z:Z) : option t
-    := if (Z.leb MIN_ADDR z) && (Z.ltb z UPPER_ADDR_BOUND)
+    := if (Z.leb ADDR_MIN z) && (Z.ltb z ADDR_LIMIT)
        then Some (of_Z z)
        else None.
 
@@ -419,7 +419,7 @@ Module AddressValue <: PTRADDR.
 
   (** Value returned by [to_Z] is in bounds *)
   Lemma to_Z_in_bounds:
-    forall (a:t), Z.le MIN_ADDR (to_Z a) /\ Z.lt (to_Z a) UPPER_ADDR_BOUND.
+    forall (a:t), Z.le ADDR_MIN (to_Z a) /\ Z.lt (to_Z a) ADDR_LIMIT.
   Proof.
     intros a.
     apply bv_unsigned_in_range.
@@ -428,11 +428,11 @@ Module AddressValue <: PTRADDR.
   (** [of_Z_safe] returns [Some (of_Z z)] when in bounds *)
   Lemma of_Z_safe_in:
     forall z,
-      (Z.le MIN_ADDR z /\ Z.lt z UPPER_ADDR_BOUND) -> of_Z_safe z = Some (of_Z z).
+      (Z.le ADDR_MIN z /\ Z.lt z ADDR_LIMIT) -> of_Z_safe z = Some (of_Z z).
   Proof.
     intros z [Pl Pu].
     unfold of_Z_safe.
-    destruct (Z.leb MIN_ADDR z) eqn:Hl, (Z.ltb z UPPER_ADDR_BOUND) eqn:Hu; cbv.
+    destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu; cbv.
     - reflexivity.
     - apply Z.ltb_ge in Hu; lia.
     - apply Z.leb_gt in Hl; lia.
@@ -442,10 +442,10 @@ Module AddressValue <: PTRADDR.
   (** [of_Z_safe] returns None when outside bounds *)
   Lemma of_Z_safe_out:
     forall z,
-      (Z.lt z MIN_ADDR \/ Z.le UPPER_ADDR_BOUND z) -> of_Z_safe z = None.
+      (Z.lt z ADDR_MIN \/ Z.le ADDR_LIMIT z) -> of_Z_safe z = None.
   Proof.
     unfold of_Z_safe.
-    intros z [L | H]; destruct (Z.leb MIN_ADDR z) eqn:Hl, (Z.ltb z UPPER_ADDR_BOUND) eqn:Hu;
+    intros z [L | H]; destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu;
       cbv; try reflexivity.
     1,2: apply Zle_bool_imp_le in Hl; lia.
   Qed.
@@ -453,13 +453,13 @@ Module AddressValue <: PTRADDR.
   (** For Z values within address range, roundtip from Z and back is an identity *)
   Lemma of_Z_roundtrip:
     forall z,
-      (Z.le MIN_ADDR z /\ Z.lt z UPPER_ADDR_BOUND) -> to_Z (of_Z z) = z.
+      (Z.le ADDR_MIN z /\ Z.lt z ADDR_LIMIT) -> to_Z (of_Z z) = z.
   Proof.
     intros z H.
     unfold of_Z, to_Z, bv_to_Z_unsigned.
-    unfold MIN_ADDR, UPPER_ADDR_BOUND in *.
+    unfold ADDR_MIN, ADDR_LIMIT in *.
     apply Z_to_bv_small.
-    destruct (Z.leb MIN_ADDR z) eqn:Hl, (Z.ltb z UPPER_ADDR_BOUND) eqn:Hu; split; try lia.
+    destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu; split; try lia.
   Qed.
 
 End AddressValue.
