@@ -3,6 +3,7 @@ Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
+From Coq.Structures Require Import OrderedType OrderedTypeEx.
 
 From stdpp.unstable Require Import bitvector bitvector_tactics bitblast. 
 
@@ -464,6 +465,63 @@ Module AddressValue <: PTRADDR.
 
 End AddressValue.
 
+(** [OrderedType] for [AddressValue.t] is useful, for example, to use it
+    as a key in [FMapAVL] *)
+Module AddressValue_as_OT <: UsualOrderedType.
+
+  Local Open Scope Z_scope.
+
+  Definition t := AddressValue.t.
+  Definition eq (x y:AddressValue.t) := @eq AddressValue.t x y.
+  Definition eq_refl := @eq_refl t.
+  Definition eq_sym := @eq_sym t.
+  Definition eq_trans := @eq_trans t.
+
+  Definition lt (x y:t) := (x.(bv_unsigned) < y.(bv_unsigned)).
+
+  Lemma lt_trans : forall x y z : t, lt x y -> lt y z -> lt x z.
+  Proof.
+    unfold lt.
+    destruct x, y, z.
+    intros.
+    apply Z.lt_trans with bv_unsigned0;
+      auto.
+  Qed.
+
+  Lemma lt_not_eq : forall x y : t, lt x y -> ~ eq x y.
+  Proof.
+    unfold t, lt, eq, bv_unsigned.
+    intros x y.
+    destruct x, y.
+    intros H.
+    intros C.
+    inversion C.
+    lia.
+  Qed.
+
+  Definition eq_dec (x y:AddressValue.t) := bv_eq_dec AddressValue.len x y.
+
+  Definition compare (x y:t) : Compare lt eq x y.
+  Proof.
+    unfold t.
+    destruct x, y.
+    case_eq (bv_unsigned ?= bv_unsigned0); cbn; intro.
+    - apply EQ.
+      unfold eq.
+      apply Z.compare_eq in H.
+      generalize dependent bv_is_wf0.
+      generalize dependent bv_is_wf.
+      Set Printing Implicit.
+      rewrite H.
+      intros bv_is_wf bv_is_wf0.
+      f_equiv.
+      apply ProofIrrelevance.PI.proof_irrelevance.
+    - apply LT. assumption.
+    - apply GT.
+      now apply Z.gt_lt.
+  Defined.
+
+End AddressValue_as_OT.
 
 Module ObjType <: OTYPE.
 
