@@ -463,6 +463,17 @@ Module AddressValue <: PTRADDR.
     destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu; split; try lia.
   Qed.
 
+  (** When using `[with_offset]`, it does not wrap as long as the resulting address is within the range. *)
+  Lemma with_offset_no_wrap:
+    forall (v:t) (o:Z),
+      (Z.le ADDR_MIN (to_Z v + o) /\ Z.lt (to_Z v + o) ADDR_LIMIT) ->
+      to_Z (with_offset v o) = Z.add (to_Z v) o.
+  Proof.
+    intros v o H.
+    apply of_Z_roundtrip.
+    assumption.
+  Qed.
+
 End AddressValue.
 
 (** [OrderedType] for [AddressValue.t] is useful, for example, to use it
