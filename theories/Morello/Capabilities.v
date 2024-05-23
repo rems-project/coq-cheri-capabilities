@@ -386,7 +386,7 @@ Module AddressValue <: PTRADDR.
 
   Definition of_Z (z:Z) : t := Z_to_bv len z.
 
-  (** Attempts to conver given integer value to address.
+  (** Attempts to convert given integer value to address.
       Returns None if value is outside [ADDR_MIN,ADDR_LIMIT) interval *)
   Definition of_Z_safe (z:Z) : option t
     := if (Z.leb ADDR_MIN z) && (Z.ltb z ADDR_LIMIT)
@@ -451,7 +451,7 @@ Module AddressValue <: PTRADDR.
     1,2: apply Zle_bool_imp_le in Hl; lia.
   Qed.
 
-  (** For Z values within address range, roundtip from Z and back is an identity *)
+  (** For Z values within address range, roundtrip from Z and back is an identity *)
   Lemma of_Z_roundtrip:
     forall z,
       (Z.le ADDR_MIN z /\ Z.lt z ADDR_LIMIT) -> to_Z (of_Z z) = z.
