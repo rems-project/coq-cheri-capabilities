@@ -3,6 +3,7 @@ Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
+From Coq.Structures Require Import OrderedType OrderedTypeEx.
 
 From stdpp.unstable Require Import bitvector bitvector_tactics bitblast. 
 
@@ -372,12 +373,26 @@ Module Permissions <: PERMISSIONS.
 End Permissions.
 
 
+(* Fixed-width integer addresses *)
 Module AddressValue <: PTRADDR.
 
   Definition len:N := 64.
   Definition t := bv len.
 
+  (** Upper address bound. Non inclusive. *)
+  Definition ADDR_LIMIT := bv_modulus len.
+  (** Lower address bound. Inclusive *)
+  Definition ADDR_MIN := 0%Z.
+
   Definition of_Z (z:Z) : t := Z_to_bv len z.
+
+  (** Attempts to convert given integer value to address.
+      Returns None if value is outside [ADDR_MIN,ADDR_LIMIT) interval *)
+  Definition of_Z_safe (z:Z) : option t
+    := if (Z.leb ADDR_MIN z) && (Z.ltb z ADDR_LIMIT)
+       then Some (of_Z z)
+       else None.
+
   Definition to_Z (v:t) : Z := bv_to_Z_unsigned v.
   Definition with_offset (v:t) (o:Z) : t :=
     of_Z (to_Z v + o).
@@ -391,8 +406,8 @@ Module AddressValue <: PTRADDR.
   Definition leb (v1:t) (v2:t) : bool := Capabilities.leb v1 v2.
 
   Definition to_string (v:t) : string := HexString.of_Z (bv_to_Z_unsigned v).
-  
-  Definition ltb_irref: forall a:t, ltb a a = false.
+
+  Lemma ltb_irref: forall a:t, ltb a a = false.
   Proof. intros. unfold ltb. unfold Capabilities.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
 
   Global Instance morello_address_eq_dec : EqDecision t.
@@ -401,8 +416,123 @@ Module AddressValue <: PTRADDR.
   Global Instance morello_address_countable : countable.Countable t.
   Proof. unfold t. apply bv_countable. Defined.
 
+  (* Some properties related to bounds *)
+
+  (** Value returned by [to_Z] is in bounds *)
+  Lemma to_Z_in_bounds:
+    forall (a:t), Z.le ADDR_MIN (to_Z a) /\ Z.lt (to_Z a) ADDR_LIMIT.
+  Proof.
+    intros a.
+    apply bv_unsigned_in_range.
+  Qed.
+
+  (** [of_Z_safe] returns [Some (of_Z z)] when in bounds *)
+  Lemma of_Z_safe_in:
+    forall z,
+      (Z.le ADDR_MIN z /\ Z.lt z ADDR_LIMIT) -> of_Z_safe z = Some (of_Z z).
+  Proof.
+    intros z [Pl Pu].
+    unfold of_Z_safe.
+    destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu; cbv.
+    - reflexivity.
+    - apply Z.ltb_ge in Hu; lia.
+    - apply Z.leb_gt in Hl; lia.
+    - apply Z.ltb_ge in Hu; lia.
+  Qed.
+
+  (** [of_Z_safe] returns None when outside bounds *)
+  Lemma of_Z_safe_out:
+    forall z,
+      (Z.lt z ADDR_MIN \/ Z.le ADDR_LIMIT z) -> of_Z_safe z = None.
+  Proof.
+    unfold of_Z_safe.
+    intros z [L | H]; destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu;
+      cbv; try reflexivity.
+    1,2: apply Zle_bool_imp_le in Hl; lia.
+  Qed.
+
+  (** For Z values within address range, roundtrip from Z and back is an identity *)
+  Lemma of_Z_roundtrip:
+    forall z,
+      (Z.le ADDR_MIN z /\ Z.lt z ADDR_LIMIT) -> to_Z (of_Z z) = z.
+  Proof.
+    intros z H.
+    unfold of_Z, to_Z, bv_to_Z_unsigned.
+    unfold ADDR_MIN, ADDR_LIMIT in *.
+    apply Z_to_bv_small.
+    destruct (Z.leb ADDR_MIN z) eqn:Hl, (Z.ltb z ADDR_LIMIT) eqn:Hu; split; try lia.
+  Qed.
+
+  (** When using `[with_offset]`, it does not wrap as long as the resulting address is within the range. *)
+  Lemma with_offset_no_wrap:
+    forall (v:t) (o:Z),
+      (Z.le ADDR_MIN (to_Z v + o) /\ Z.lt (to_Z v + o) ADDR_LIMIT) ->
+      to_Z (with_offset v o) = Z.add (to_Z v) o.
+  Proof.
+    intros v o H.
+    apply of_Z_roundtrip.
+    assumption.
+  Qed.
+
 End AddressValue.
 
+(** [OrderedType] for [AddressValue.t] is useful, for example, to use it
+    as a key in [FMapAVL] *)
+Module AddressValue_as_OT <: UsualOrderedType.
+
+  Local Open Scope Z_scope.
+
+  Definition t := AddressValue.t.
+  Definition eq (x y:AddressValue.t) := @eq AddressValue.t x y.
+  Definition eq_refl := @eq_refl t.
+  Definition eq_sym := @eq_sym t.
+  Definition eq_trans := @eq_trans t.
+
+  Definition lt (x y:t) := (x.(bv_unsigned) < y.(bv_unsigned)).
+
+  Lemma lt_trans : forall x y z : t, lt x y -> lt y z -> lt x z.
+  Proof.
+    unfold lt.
+    destruct x, y, z.
+    intros.
+    apply Z.lt_trans with bv_unsigned0;
+      auto.
+  Qed.
+
+  Lemma lt_not_eq : forall x y : t, lt x y -> ~ eq x y.
+  Proof.
+    unfold t, lt, eq, bv_unsigned.
+    intros x y.
+    destruct x, y.
+    intros H.
+    intros C.
+    inversion C.
+    lia.
+  Qed.
+
+  Definition eq_dec (x y:AddressValue.t) := bv_eq_dec AddressValue.len x y.
+
+  Definition compare (x y:t) : Compare lt eq x y.
+  Proof.
+    unfold t.
+    destruct x, y.
+    case_eq (bv_unsigned ?= bv_unsigned0); cbn; intro.
+    - apply EQ.
+      unfold eq.
+      apply Z.compare_eq in H.
+      generalize dependent bv_is_wf0.
+      generalize dependent bv_is_wf.
+      Set Printing Implicit.
+      rewrite H.
+      intros bv_is_wf bv_is_wf0.
+      f_equiv.
+      apply ProofIrrelevance.PI.proof_irrelevance.
+    - apply LT. assumption.
+    - apply GT.
+      now apply Z.gt_lt.
+  Defined.
+
+End AddressValue_as_OT.
 
 Module ObjType <: OTYPE.
 
