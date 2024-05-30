@@ -1,0 +1,5 @@
+(coq.theory
+ (name CheriCaps.Morello.CapFns)
+ (package coq-cheri-capabilities)
+ (theories stdpp SailStdpp)
+)
