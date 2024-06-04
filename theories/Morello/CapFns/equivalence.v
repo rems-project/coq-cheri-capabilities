@@ -48,6 +48,10 @@ Proof. reflexivity. Qed.
 Lemma CAP_MW_equiv : CapFns_Sail_gen.CAP_MW = CapFns.CAP_MW.
 Proof. reflexivity. Qed. 
 
+Lemma CapBoundsUsesValue_equiv : 
+  CapFns_Sail_gen.CapBoundsUsesValue = CapFns.CapBoundsUsesValue.
+Proof. reflexivity. Qed. 
+
 Lemma CapIsInternalExponent_equiv : 
   forall (c : mword 129),
   CapFns_Sail_gen.CapIsInternalExponent c = CapFns.CapIsInternalExponent c.
@@ -87,6 +91,10 @@ Lemma CapBoundsAddress_equiv (address : mword (63 - 0 + 1)) :
   CapFns_Sail_gen.CapBoundsAddress address = CapFns.CapBoundsAddress address.
 Proof. reflexivity. Qed.
 
+Lemma CapWithTagClear_equiv : 
+  CapFns_Sail_gen.CapWithTagClear = CapFns.CapWithTagClear.
+Proof. reflexivity. Qed. 
+
 Lemma __id_equiv : CapFns_Sail_gen.__id = CapFns.__id.
 Proof. reflexivity. Qed.
 
@@ -94,6 +102,10 @@ Lemma Zeros_equiv : CapFns_Sail_gen.Zeros = CapFns.Zeros.
 Proof. reflexivity. Qed.
 
 Ltac try_renaming :=
+  try (change CapFns_Sail_gen.CAP_VALUE_LO_BIT with 0 in *);
+  try (change CapFns.CAP_VALUE_LO_BIT with 0 in *);
+  try (change CapFns_Sail_gen.CAP_VALUE_HI_BIT with 63 in *);
+  try (change CapFns.CAP_VALUE_HI_BIT with 63 in *);
   try (change CapFns_Sail_gen.CAP_MAX_ENCODEABLE_EXPONENT with 63 in *);
   try (change CapFns.CAP_MAX_ENCODEABLE_EXPONENT with 63 in *);
   try (change CapFns_Sail_gen.CAP_MAX_EXPONENT with 50 in *);
@@ -104,6 +116,7 @@ Ltac try_renaming :=
   try (rewrite CAP_LIMIT_HI_BIT_equiv in *);
   try (rewrite CAP_MAX_EXPONENT_equiv in *);
   try (rewrite CAP_MW_equiv in *);
+  try (rewrite CapBoundsUsesValue_equiv in *);
   try (rewrite CapIsInternalExponent_equiv in *);
   try (rewrite returnDoneEqual in *);
   try (rewrite CapUnsignedLessThan_equiv in *);
@@ -113,6 +126,7 @@ Ltac try_renaming :=
   try (rewrite CapGetBottom_equiv in *);
   try (rewrite CapGetValue_equiv in *);
   try (rewrite CapBoundsAddress_equiv in *);
+  try (rewrite CapWithTagClear_equiv in *);
   try (rewrite __id_equiv in *);
   try (rewrite Zeros_equiv in *);
   try (change (CapFns_Sail_gen.CAP_MW) with 16 in *);
@@ -322,7 +336,7 @@ Lemma resolve_bind_Done {A} {B} (g : B) :
       f g).
 Proof. simpl. reflexivity. Qed.
 
-Lemma resolve_bind_Undefined_Bitvector {A} {n} (c : mword 129): 
+Lemma resolve_bind_Undefined_Bitvector {A} {n} : 
     bind (Undefined.undefined_bitvector n) 
   = 
     (fun f : bits n -> monad register_value A unit =>
@@ -331,12 +345,54 @@ Lemma resolve_bind_Undefined_Bitvector {A} {n} (c : mword 129):
         (fun (x : mword n) => f x))).  
 Proof. simpl. reflexivity. Qed.    
 
+
+
+(* Definition foo {A} n := (fun f : bits n -> monad register_value A unit =>
+(Choose "undefined_bitvector" 
+  (ChooseBitvector n) 
+  (fun (x : mword n) => f x))).
+
+Definition x_ : bits 2 := CapFns.Zeros 2.
+Check foo.
+Definition bar := fun f : N -> N =>
+Compute ((foo 2) x_). *)
+
+Lemma resolve_bind_Undefined_Bool {A} : 
+  bind (Undefined.undefined_bool tt) 
+= 
+  (fun (f : bool -> monad register_value A unit) =>
+    (Choose "undefined_bool"
+      (ChooseBool) 
+      (fun (x : bool) => f x))).  
+Proof. simpl. reflexivity. Qed.    
+
+
 Lemma resolve_bind_CapGetBounds {A} (c : mword 129)  : 
     bind (CapFns_Sail_gen.CapGetBounds c)  
   =  
     (fun f : (bits 65 * bits 65 * bool) -> monad register_value A unit =>
       f (CapFns.CapGetBounds c)).
 Proof. Admitted.
+
+Lemma resolve_bind_CapBoundsEqual {A} (c1 c2 : mword 129) : 
+  bind (CapFns_Sail_gen.CapBoundsEqual c1 c2)  
+=  
+  (fun f : bool -> monad register_value A unit =>
+    f (CapFns.CapBoundsEqual c1 c2)).
+Proof. Admitted.
+
+Lemma resolve_bind_CapIsRepresentable {A} (c : mword 129) (v : mword 64) : 
+  bind (CapFns_Sail_gen.CapIsRepresentable c v)  
+=  
+  (fun f : bool -> monad register_value A unit =>
+    f (CapFns.CapIsRepresentable c v)).
+Proof.
+  unfold CapFns_Sail_gen.CapIsRepresentable, CapFns.CapIsRepresentable.
+  rewrite resolve_bind_CapBoundsEqual.
+  try_renaming.
+  reflexivity.
+  Qed.
+
 
 (* Lemma resolve_bind_CapIsRepresentableFast {A} (c : mword 129) (v : mword 64)  : 
   bind (CapFns_Sail_gen.CapIsRepresentableFast c v)  
@@ -377,6 +433,36 @@ Proof.
   intros. apply Finished; reflexivity.
   Qed.
 
+Lemma CapIsInBounds_equiv : 
+  forall (c : mword 129),
+    equiv (CapFns_Sail_gen.CapIsInBounds c) (CapFns.CapIsInBounds c).
+Proof.
+  intros.
+  unfold CapFns_Sail_gen.CapIsInBounds, CapFns.CapIsInBounds.
+  rewrite resolve_bind_Undefined_Bitvector.
+  apply Nondet. intros.
+  apply Nondet. intros.
+  rewrite resolve_bind_Undefined_Bool.
+  apply Nondet. intros.
+  rewrite resolve_bind_CapGetBounds.
+  apply equiv_let_tuple2_same; [ reflexivity |].
+  intros. apply equiv_let_tuple2_same; [ reflexivity |].
+  intros. apply Finished.
+  try_renaming. reflexivity.
+Qed.
+
+Lemma CapSetValue_equiv : 
+  forall (c : mword 129) (v : mword 64),
+    equiv (CapFns_Sail_gen.CapSetValue c v) (CapFns.CapSetValue c v).
+Proof.
+  intros.
+  unfold CapFns_Sail_gen.CapSetValue, CapFns.CapSetValue.
+  rewrite resolve_bind_CapIsRepresentable.
+  apply Finished.
+  try_renaming.  
+  destruct (negb _) eqn:E; reflexivity.
+Qed.
+
 (* Lemma CapAdd_equiv : 
   forall (c : mword 129) (v : mword 64),
     equiv (CapFns_Sail_gen.CapAdd c v) (CapFns.CapAdd c v).
@@ -389,23 +475,15 @@ Proof.
 Qed. *)
 
   
-  (* CapSetValue
-
+  (* 
   CapIsRangeInBounds
-
-  CapGetBase
 
   CapSetBounds
 
   CapGetRepresentableMask
 
-  CapIsBaseAboveLimit
-
   CapIsSubSetOf
-
-  CapIsInBounds
-
-  CapSetOffset *)
+ *)
 
 
 (* Inductive Is_Deterministic_M {a} (m : M a) : Prop :=
