@@ -345,18 +345,6 @@ Lemma resolve_bind_Undefined_Bitvector {A} {n} :
         (fun (x : mword n) => f x))).  
 Proof. simpl. reflexivity. Qed.    
 
-
-
-(* Definition foo {A} n := (fun f : bits n -> monad register_value A unit =>
-(Choose "undefined_bitvector" 
-  (ChooseBitvector n) 
-  (fun (x : mword n) => f x))).
-
-Definition x_ : bits 2 := CapFns.Zeros 2.
-Check foo.
-Definition bar := fun f : N -> N =>
-Compute ((foo 2) x_). *)
-
 Lemma resolve_bind_Undefined_Bool {A} : 
   bind (Undefined.undefined_bool tt) 
 = 
