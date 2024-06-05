@@ -603,14 +603,10 @@ Module Bounds <: PTRADDR_INTERVAL(AddressValue).
 
   Definition bound_len:N := 65.
   Definition t := ((bv bound_len) * (bv bound_len))%type.
-  Definition CAP_MAX_LIMIT_BOUND := (2^64)%Z.
   
   Definition of_Zs (bounds : Z * Z) : t :=
     let '(base,limit) := bounds in   
     (Z_to_bv bound_len base, Z_to_bv bound_len limit). 
-  
-  Definition of_addresses (a b : AddressValue.t) : t := 
-    of_Zs (AddressValue.to_Z a, AddressValue.to_Z b).
 
   Definition to_Zs (bounds : t) : Z * Z :=
     let (base,top) := bounds in   
@@ -695,16 +691,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       cap_get_bounds_ cap in
     (base_mw, limit_mw).
 
-  (* Returns the bounds as pairs of AddressValues, but if the limit bound is the maximum 
-  bound (the only valid bound value that cannot be represented as an AddressValue) it just returns both bounds as 0. *)
-  Definition cap_get_bounds_adrs (cap:t) : AddressValue.t * AddressValue.t :=
-    let (base,limit) := cap_get_bounds cap in 
-    if (limit.(bv_unsigned) =? Bounds.CAP_MAX_LIMIT_BOUND)%Z then
-      (AddressValue.of_Z 0, AddressValue.of_Z 0)
-    else 
-      let (base',limit') := Bounds.to_Zs (base,limit) in 
-      (AddressValue.of_Z base', AddressValue.of_Z limit').
-  
+  Definition cap_get_bounds_Zs (cap:t) : Z * Z :=
+    Bounds.to_Zs (cap_get_bounds cap).
   Definition cap_get_offset (c:t) : Z := (CapGetOffset c).(bv_unsigned).
     
   Definition cap_get_seal (cap:t) : SealType.t := 
