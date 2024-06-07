@@ -1,10 +1,11 @@
 
-Require Import Lia.
+Require Import Lia Coq.Program.Equality.
+
+From stdpp.unstable Require Export bitvector_tactics.
 
 From SailStdpp Require Import Values Prompt_monad MachineWord.
 
 From CheriCaps Require Import CapFns CapFnsTypes CapFns_Sail_gen CapFnsTypes_Sail_gen.
-Require Import Coq.Program.Equality.
 
 
 Definition M := CapFnsTypes_Sail_gen.M.
@@ -325,6 +326,8 @@ Proof.
   intros.
   apply Nondet.
   intros.
+  (* resolve CapGetTop *)
+  
   try_renaming.
   
     Admitted.
@@ -451,6 +454,62 @@ Proof.
   destruct (negb _) eqn:E; reflexivity.
 Qed.
 
+Lemma CapIsRangeInBounds_equiv : 
+  forall (c : mword 129) (start : mword 64) (len : mword 65),
+    equiv (CapFns_Sail_gen.CapIsRangeInBounds c start len) (CapFns.CapIsRangeInBounds c start len).
+Proof.
+  intros.
+  unfold CapFns_Sail_gen.CapIsRangeInBounds, CapFns.CapIsRangeInBounds.
+  rewrite resolve_bind_Undefined_Bitvector. 
+  apply Nondet. intros. apply Nondet. intros.
+  rewrite resolve_bind_Undefined_Bool. apply Nondet. intros.
+  rewrite resolve_bind_CapGetBounds.
+  apply equiv_let_tuple2_same; [ reflexivity |]. intros.
+  apply equiv_let_tuple2_same; [ reflexivity |]. intros.
+  apply Finished.
+  reflexivity.
+Qed.
+
+Lemma CapSetBounds_equiv :
+  forall (c : mword 129) (req_len : mword 65) (exact : bool),
+    equiv (CapFns_Sail_gen.CapSetBounds c req_len exact) (CapFns.CapSetBounds c req_len exact).
+Proof.
+  Admitted.
+
+Lemma resolve_bind_CapSetBounds {A} (c : mword 129) (req_len : mword 65) (exact : bool) : 
+    bind (CapFns_Sail_gen.CapSetBounds c req_len exact)  
+  =  
+    (fun f : mword 129 -> monad register_value A unit =>
+      f (CapFns.CapSetBounds c req_len exact)).
+Proof.
+  Admitted.
+
+Lemma CapGetRepresentableMask_equiv : 
+  forall (m : mword 64), 
+    equiv (CapFns_Sail_gen.CapGetRepresentableMask m) (CapFns.CapGetRepresentableMask m).
+Proof.
+  intros.
+  unfold CapFns_Sail_gen.CapGetRepresentableMask, CapFns.CapGetRepresentableMask.
+  rewrite resolve_bind_CapSetBounds.
+  (* resolve assert_exp' *)
+  Admitted.
+
+Lemma CapIsSubSetOf_equiv : 
+  forall (a : mword 129) (b : mword 129),
+    equiv (CapFns_Sail_gen.CapIsSubSetOf a b) (CapFns.CapIsSubSetOf a b).
+Proof.
+  intros.
+  unfold CapFns_Sail_gen.CapIsSubSetOf, CapFns.CapIsSubSetOf.
+  repeat (rewrite resolve_bind_Undefined_Bitvector; apply Nondet; intros; apply Nondet; intros).
+  repeat (rewrite resolve_bind_Undefined_Bool; apply Nondet; intros; apply Nondet; intros; apply Nondet; intros). apply Nondet. intros.
+  rewrite resolve_bind_CapGetBounds.
+  repeat (apply equiv_let_tuple2_same; [ reflexivity | intros ]).
+  rewrite resolve_bind_CapGetBounds.
+  repeat (apply equiv_let_tuple2_same; [ reflexivity | intros ]).
+  apply Finished.
+  reflexivity.
+  Qed.
+
 (* Lemma CapAdd_equiv : 
   forall (c : mword 129) (v : mword 64),
     equiv (CapFns_Sail_gen.CapAdd c v) (CapFns.CapAdd c v).
@@ -461,18 +520,6 @@ Proof.
   try_renaming.
   reflexivity.
 Qed. *)
-
-  
-  (* 
-  CapIsRangeInBounds
-
-  CapSetBounds
-
-  CapGetRepresentableMask
-
-  CapIsSubSetOf
- *)
-
 
 (* Inductive Is_Deterministic_M {a} (m : M a) : Prop :=
   | DoneCase (x : match m with Done _ => True | _ => False end) : Is_Deterministic_M m
