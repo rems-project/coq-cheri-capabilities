@@ -5,7 +5,7 @@ Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
 From Coq.Structures Require Import OrderedType OrderedTypeEx.
 
-From stdpp.unstable Require Import bitvector bitvector_tactics bitblast. 
+From stdpp Require Import bitvector bitblast bitvector_tactics.
 
 From SailStdpp Require Import Base Values Values_lemmas Operators_mwords MachineWord Operators_mwords MachineWordInterface.
 
