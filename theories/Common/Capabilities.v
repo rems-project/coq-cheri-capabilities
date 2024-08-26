@@ -8,7 +8,7 @@ Require Import Coq.Numbers.BinNums.
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Bool.Bool.
 
-Require Import Addr.
+From CheriCaps.Common Require Import Addr.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -129,7 +129,8 @@ Module Type CAPABILITY
 
   Parameter min_ptraddr : V.t.
   Parameter max_ptraddr : V.t.
-  Parameter sizeof_ptraddr: nat.
+  Parameter sizeof_cap: nat. (* in bytes, without tag *)
+  Parameter sizeof_ptraddr: nat. (* in bytes *)
 
   (** access to various cap fields **)
 
@@ -330,5 +331,12 @@ Module Type CAPABILITY
   Parameter cap_invalidate_invalidates: forall c, cap_is_valid (cap_invalidate c) = false.
 
   Parameter cap_invalidate_preserves_value: forall c, cap_get_value c = cap_get_value (cap_invalidate c).
+
+  Parameter cap_encode_length:
+    forall c t l t', encode t c = Some (l, t') -> List.length l = sizeof_cap.
+
+  Parameter cap_exact_encode_decode:
+    forall c c' t l, encode true c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
+
 
 End CAPABILITY.

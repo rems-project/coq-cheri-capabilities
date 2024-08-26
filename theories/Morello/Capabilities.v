@@ -667,6 +667,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition cap_SEAL_TYPE_LB : ObjType.t := ObjType.of_Z 3.
 
   Definition sizeof_ptraddr := 8%nat. (* in bytes *)
+  Definition sizeof_cap := 16%nat. (* in bytes, without tag *)
   (* Definition ptraddr_bits := sizeof_ptraddr * 8. *)
   Definition min_ptraddr := Z_to_bv (N.of_nat (sizeof_ptraddr*8)) 0.  
   Definition max_ptraddr := Z_to_bv (N.of_nat (sizeof_ptraddr*8)) (Z.sub (bv_modulus (N.of_nat (sizeof_ptraddr*8))) 1).
@@ -1380,8 +1381,63 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     { unfold_cap. bitblast. }
     { fold (cap_get_value c). fold (cap_get_value (cap_invalidate (cap_set_objtype c ot))). rewrite <- cap_invalidate_preserves_value. unfold_cap. bitblast. }
   Qed.
-  
-End Capability.  
+
+  Fact try_map_length
+    {A B:Type}
+    (f : A -> option B) (l:list A)
+    (l':list B):
+    try_map f l = Some l' -> length l = length l'.
+  Proof.
+    intros H.
+    revert l' H.
+    induction l.
+    -
+      intros l' H.
+      cbn in *.
+      inversion H.
+      reflexivity.
+    -
+      intros l' H.
+      cbn in *.
+      destruct (f a) eqn:Hfa; [| inversion H].
+      destruct (try_map f l) eqn:Htry; [| inversion H].
+      destruct l' as [| l0' l']; inversion H.
+      subst.
+      cbn.
+      f_equal.
+      apply IHl.
+      reflexivity.
+  Qed.
+
+  Lemma cap_encode_length:
+    forall c t l t', encode t c = Some (l, t') -> List.length l = sizeof_cap.
+  Proof.
+    intros c t l t' H.
+    unfold encode in H.
+    repeat match goal with
+    | [ H : context [ match ?X with _ => _ end ] |- _] =>
+        match type of X with
+        | sumbool _ _ => destruct X
+        | _ => destruct X eqn:?
+        end
+           end; inversion H.
+
+    clear H H2.
+    subst l1.
+    unfold sizeof_cap.
+    apply try_map_length in Heqo0.
+    rewrite <- Heqo0.
+    clear Heqo0.
+  Admitted.
+
+  Lemma cap_exact_encode_decode:
+    forall c c' t l, encode true c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
+  Proof.
+    intros c c' t l E D.
+    apply eqb_eq.
+  Admitted.
+
+End Capability.
 
 
 Module ExampleCaps.
