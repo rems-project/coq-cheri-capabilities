@@ -6,26 +6,11 @@ Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
 
 From stdpp.unstable Require Import bitvector bitvector_tactics. 
+From stdpp Require Import bitvector.
 From SailStdpp Require Import Values Operators_mwords.
 Require Import CapFns.
 
 From CheriCaps.Common Require Import Utils Addr Capabilities.
-
-Module tests_convertors.
-
-  (* Example converters_sound_1 : Z_to_bv 3 5 = mword_to_bv (bv_to_mword (Z_to_bv 3 5)).
-  Proof. vm_compute (Z_to_bv 3 5). Admitted. (*reflexivity. Qed. *)
-  Example converters_sound_2 : Z_to_bv 11 1000 = mword_to_bv (bv_to_mword'' (Z_to_bv 11 1000)).
-  Proof. Admitted. (*reflexivity. Qed. *)
-  Example converters_sound_3 : @mword_of_int 12 2049 = bv_to_mword'' (mword_to_bv (@mword_of_int 12 2049)).
-  Proof. vm_compute (mword_of_int 2049). vm_compute (mword_to_bv _). Admitted. (*reflexivity. Qed. *)
-  Definition max_value : Z := 680564733841876926926749214863536422911. (* 2^129 - 1 *)
-  Example converters_sound_4 : @mword_of_int 129 max_value = bv_to_mword (mword_to_bv (@mword_of_int 129 max_value)).
-  Proof. Admitted. (*reflexivity. Qed. *)
-  Example converters_sound_5 : Z_to_bv 129 max_value = mword_to_bv (bv_to_mword'' (Z_to_bv 129 max_value)).
-  Proof. Admitted. reflexivity. Qed. *)
-
-End tests_convertors. 
 
 Module test_cap_getters_and_setters.
 

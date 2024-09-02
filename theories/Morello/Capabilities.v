@@ -5,12 +5,13 @@ Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
 From Coq.Structures Require Import OrderedType OrderedTypeEx.
 
-From stdpp.unstable Require Import bitvector bitvector_tactics bitblast. 
+From stdpp Require Import bitvector bitblast bitvector_tactics.
 
 From SailStdpp Require Import Base Values Values_lemmas Operators_mwords MachineWord Operators_mwords MachineWordInterface.
 
 From CheriCaps.Common Require Import Utils Addr Capabilities.
 From CheriCaps Require Import CapFns.
+From CheriCaps.Morello Require Import Bv_extensions.
 
 
 (** Notations and their definitions **)
@@ -386,7 +387,7 @@ Module AddressValue <: PTRADDR.
 
   Definition of_Z (z:Z) : t := Z_to_bv len z.
 
-  (** Attempts to conver given integer value to address.
+  (** Attempts to convert given integer value to address.
       Returns None if value is outside [ADDR_MIN,ADDR_LIMIT) interval *)
   Definition of_Z_safe (z:Z) : option t
     := if (Z.leb ADDR_MIN z) && (Z.ltb z ADDR_LIMIT)
@@ -451,7 +452,7 @@ Module AddressValue <: PTRADDR.
     1,2: apply Zle_bool_imp_le in Hl; lia.
   Qed.
 
-  (** For Z values within address range, roundtip from Z and back is an identity *)
+  (** For Z values within address range, roundtrip from Z and back is an identity *)
   Lemma of_Z_roundtrip:
     forall z,
       (Z.le ADDR_MIN z /\ Z.lt z ADDR_LIMIT) -> to_Z (of_Z z) = z.
@@ -603,14 +604,10 @@ Module Bounds <: PTRADDR_INTERVAL(AddressValue).
 
   Definition bound_len:N := 65.
   Definition t := ((bv bound_len) * (bv bound_len))%type.
-  Definition CAP_MAX_LIMIT_BOUND := (2^64)%Z.
   
   Definition of_Zs (bounds : Z * Z) : t :=
     let '(base,limit) := bounds in   
     (Z_to_bv bound_len base, Z_to_bv bound_len limit). 
-  
-  Definition of_addresses (a b : AddressValue.t) : t := 
-    of_Zs (AddressValue.to_Z a, AddressValue.to_Z b).
 
   Definition to_Zs (bounds : t) : Z * Z :=
     let (base,top) := bounds in   
@@ -695,16 +692,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       cap_get_bounds_ cap in
     (base_mw, limit_mw).
 
-  (* Returns the bounds as pairs of AddressValues, but if the limit bound is the maximum 
-  bound (the only valid bound value that cannot be represented as an AddressValue) it just returns both bounds as 0. *)
-  Definition cap_get_bounds_adrs (cap:t) : AddressValue.t * AddressValue.t :=
-    let (base,limit) := cap_get_bounds cap in 
-    if (limit.(bv_unsigned) =? Bounds.CAP_MAX_LIMIT_BOUND)%Z then
-      (AddressValue.of_Z 0, AddressValue.of_Z 0)
-    else 
-      let (base',limit') := Bounds.to_Zs (base,limit) in 
-      (AddressValue.of_Z base', AddressValue.of_Z limit').
-  
+  Definition cap_get_bounds_Zs (cap:t) : Z * Z :=
+    Bounds.to_Zs (cap_get_bounds cap).
   Definition cap_get_offset (c:t) : Z := (CapGetOffset c).(bv_unsigned).
     
   Definition cap_get_seal (cap:t) : SealType.t := 
@@ -1157,32 +1146,174 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     - intro H. rewrite H. apply eqb_refl.
   Defined.  
   
+(* Beginning of Translation definitions and lemmas from Capabilities to bitvectors. *)
+
+  Ltac simpl_arith :=
+    (* repeat ( *)
+      change (63 - 0 + 1)%Z with 64%Z in *;
+      change (63 + 1)%positive with 64%positive in *;
+      change (95 - 1)%Z with 94%Z in *;
+      change (63 + 1)%nat with 64%nat in *;
+      change (109 - 95 + 1)%Z with 15%Z in *;
+      change (-95 + 95)%Z with 0%Z in *;
+      change (0+64-1+1)%Z with 64%Z in *;
+      change (0+64-1)%Z with 63%Z in *;    
+      change (Z.to_nat 0) with 0%nat in *;
+      change (Z.to_nat 64) with 64%nat in *;
+      change (Z.to_nat 15) with 15%nat in *;
+      change (Z.to_nat 95) with 95%nat in *;
+      change (Z.to_nat 110) with 110%nat in *;
+      change (Z.to_nat 128) with 128%nat in *;
+      change (Z.to_nat 129) with 129%nat in *;
+      change (Z.to_nat (109 - 94)%Z) with 15%nat in *;
+      change (Z.of_N 95) with 95%Z in *;
+      change (Z.of_nat 128) with 128%Z in *;
+      change (Z.of_N (0+0)) with 0%Z in *;
+      change (N.of_nat (Z.to_nat (127 - 110 + 1 - 1 - 0 + 1))) with 18%N in *;
+      change (Pos.to_nat 1) with 1%nat in *;
+      change (Pos.to_nat 64) with 64%nat in *;
+      change (N.of_nat 0) with 0%N in *;
+      change (N.of_nat 1) with 1%N in *;
+      change (N.of_nat 15) with 15%N in *;
+      change (N.of_nat 18) with 18%N in *;
+      change (N.of_nat 19) with 19%N in *;
+      change (N.of_nat 64) with 64%N in *;
+      change (N.of_nat 110) with 110%N in *;
+      change (N.of_nat 15) with 15%N in *;
+      change (N.of_nat 64) with 64%N in *; 
+      change (N.of_nat 95) with 95%N in *;
+      change (N.of_nat 129) with 129%N in *;
+      (* try (change (S `{?x}) with (x+1)%nat); *)
+      try (change (Pos.succ `{?x}) with 110%positive)
+    .
+
+  Ltac simpl_arith_r := repeat simpl_arith.
+
   Ltac unfold_cap :=
-    repeat 
-      (unfold Capability.cap_permits_load, Capability.cap_permits_store, Capability.cap_get_perms, Capability.cap_is_unsealed, Capability.cap_is_sealed, Capability.cap_get_value, Capability.cap_set_value; simpl;
+    repeat (
+      unfold Capability.cap_permits_load, Capability.cap_permits_store, Capability.cap_get_perms, Capability.cap_is_unsealed, Capability.cap_is_sealed, Capability.cap_get_value, Capability.cap_set_value, cap_set_objtype; 
       unfold Capabilities.Permissions.has_load_perm, Capabilities.Permissions.has_store_perm, len, Capabilities.Permissions.has_perm; 
       unfold AddressValue.t, AddressValue.len in *;
-      unfold CapFns.CapGetValue, CapFns.CapSetValue, CapFns.CapPermsInclude, CapFns.CapGetPermissions, CapFns.CAP_PERM_LOAD, CapFns.CAP_PERM_STORE, CapFns.CAP_PERMS_NUM_BITS, CapFns.CAP_PERMS_HI_BIT, CapFns.CAP_PERMS_LO_BIT, CapFns.integer_subrange, CapFns.CapIsSealed, CapFns.Zeros, CapFns.CapGetObjectType, CapFns.CAP_VALUE_NUM_BITS, CapFns.CAP_VALUE_HI_BIT, CapFns.CAP_VALUE_LO_BIT, CapFns.CAP_OTYPE_LO_BIT in *; simpl;
-      unfold Operators_mwords.get_slice_int, Operators_mwords.subrange_vec_dec, Operators_mwords.neq_vec, Operators_mwords.eq_vec, Operators_mwords.update_subrange_vec_dec; simpl;
-      unfold MachineWord.update_slice, MachineWord.MachineWord.slice, MachineWord.MachineWord.Z_to_word, MachineWord.MachineWord.and, MachineWord.MachineWord.eqb, MachineWord.MachineWord.eq_dec, MachineWord.MachineWord.zero_extend, MachineWord.MachineWord.zeros; simpl;
-      unfold Values.shl_int, Values.to_word_nat, Values.to_word, Values.get_word; simpl;
-      unfold TypeCasts.autocast; simpl; 
-      bv_simplify; 
-      change (63 - 0 + 1) with 64;
-      change (63 + 1)%positive with 64%positive;
-      change (Z.to_nat 0) with 0%nat;
-      change (Z.to_nat 64) with 64%nat;
-      change (Z.to_nat 110) with 110%nat;
-      change (Pos.to_nat 64) with 64%nat;
-      change (N.of_nat 0) with 0%N;
-      change (N.of_nat 18) with 18%N;
-      change (N.of_nat 64) with 64%N;
-      change (N.of_nat 110) with 110%N;
-      change (Z.to_nat 95) with 95%nat;
-      change (N.of_nat 15) with 15%N;
-      change (N.of_nat 95) with 95%N;
+      unfold ObjType.t, ObjType.len in *;
+      unfold CapFns.CapGetValue, CapFns.CapSetValue, CapFns.CapPermsInclude, CapFns.CapGetPermissions, CapFns.CAP_PERM_LOAD, CapFns.CAP_PERM_STORE, CapFns.CAP_PERMS_NUM_BITS, CapFns.CAP_PERMS_HI_BIT, CapFns.CAP_PERMS_LO_BIT, CapFns.CapSetObjectType, CapFns.integer_subrange, CapFns.CapIsSealed, CapFns.Zeros, CapFns.CapGetObjectType, CapFns.CAP_VALUE_NUM_BITS, CapFns.CAP_VALUE_HI_BIT, CapFns.CAP_VALUE_LO_BIT, CapFns.CAP_OTYPE_HI_BIT, CapFns.CAP_OTYPE_LO_BIT in *; 
+      unfold Operators_mwords.get_slice_int, Operators_mwords.subrange_vec_dec, Operators_mwords.neq_vec, Operators_mwords.eq_vec, Operators_mwords.update_subrange_vec_dec; 
+      unfold MachineWord.update_slice, MachineWord.MachineWord.slice, MachineWord.MachineWord.Z_to_word, MachineWord.MachineWord.and, MachineWord.MachineWord.eqb, MachineWord.MachineWord.eq_dec, MachineWord.MachineWord.zero_extend, MachineWord.MachineWord.zeros; 
+      unfold Values.shl_int, Values.to_word_nat, Values.to_word, Values.get_word; 
+      unfold TypeCasts.autocast; 
+      simpl_arith;
       simpl;
       bv_simplify).
+
+  Lemma subrange_vec_dec_after_clear_tag (c:t) (hi lo : Z) :
+    let c : mword 129 := c in
+    (hi <? 128)%Z -> (lo <? hi)%Z ->
+    subrange_vec_dec c hi lo = subrange_vec_dec (CapWithTagClear c) hi lo.
+  Proof.
+    intros x H J. 
+    assert (Hp: (hi < 128)%Z); [ apply Is_true_eq_true in H; lia |].
+    unfold subrange_vec_dec, CapWithTagClear, CapSetTag, CAP_TAG_BIT, autocast. 
+    simpl. bv_simplify.
+    destruct (Z.eq_dec _ _); [| reflexivity].
+    unfold MachineWord.slice, MachineWord.zero_extend, MachineWord.N_to_word. simpl.
+    change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.
+    unfold update_vec_dec, update_mword_dec. simpl. 
+    unfold MachineWord.set_bit, MachineWord.update_slice, MachineWord.slice. simpl.
+    replace (bv_extract _ 0 _) with (bv_0 0); [| bv_simplify; bitblast].
+    bv_simplify.    
+    rewrite bv_zero_extend_idemp.
+    change (bv_zero_extend _ _) with (bv_concat 129 (bv_0 1) (bv_extract 0 128 c)).
+    replace (N.of_nat (Z.to_nat lo)) with (Z.to_N lo); [| rewrite Z_nat_N; reflexivity].
+    replace (bv_extract _ _ (bv_concat _ _ _)) with (bv_extract (Z.to_N lo) (N.of_nat (Z.to_nat hi - Z.to_nat lo + 1)) (bv_extract 0 128 c)); [| bv_simplify; reflexivity].
+    set (len := (N.of_nat (Z.to_nat hi - Z.to_nat lo + 1))).
+    replace (bv_extract _ _ (bv_extract _ _ _)) with (bv_extract (Z.to_N lo) len c). reflexivity.
+    bv_simplify. rewrite bv_extract_unsigned. rewrite bv_extract_unsigned. bv_simplify. bitblast.       
+  Qed.  
+
+  Lemma cap_value_bv (c:t) : cap_get_value c = @bv_extract 129 0 64 c. 
+  Proof. done. Qed.
+    
+  Lemma cap_seal_indirect_entry_bv (c:t) :
+    cap_is_valid c ->
+    cap_is_unsealed c ->
+    cap_seal_indirect_entry c = bv_concat 129 (bv_extract (n:=129) 110 19 c) (bv_concat 110 (BV 15 3) (bv_extract (n:=129) 0 95 c)).
+  Proof. 
+    intros H1 H2. 
+    unfold cap_seal_indirect_entry, cap_seal_immediate.
+    assert (H3: cap_is_valid c /\ cap_is_unsealed c); [ split; assumption |];                
+    apply andb_prop_intro in H3; destruct (_ && _); try contradiction.
+    reflexivity.
+    Qed.
+      
+  Lemma cap_is_valid_bv_and (c:t) :  (* could this be moved to SimplAnd? *)
+    cap_is_valid c ->
+    bv_and c (BV 129 (2^128)) = BV 129 (2^128).
+  Proof.    
+    unfold cap_is_valid, CapFns.CapIsTagClear, CapFns.CapGetTag, CapFns.CAP_TAG_BIT. unfold Operators_mwords.access_vec_dec. simpl. unfold Values.access_mword_dec. unfold get_word, MachineWord.get_bit.
+    simpl_arith_r.
+    destruct (Z.testbit (@bv_unsigned 129 c) 128) eqn:U.
+    + intros. bv_simplify. unfold len. bv_simplify. bitblast as m. replace m with 128%Z; [ assumption | lia ].
+    + done.
+    Qed.
+    
+  Lemma cap_is_unsealed_bv_and (c:t) : 
+    cap_is_unsealed c ->
+    bv_and c (BV 129 0x3FFF800000000000000000000000) = BV 129 0.
+  Proof.
+    unfold_cap.
+    simpl_arith_r.
+    intro H.
+    case_decide.
+    - apply bv_eq_wrap. unfold len. bv_simplify.
+      bitblast as n.
+      apply bv_eq_wrap in H0. 
+      simpl_arith_r.
+      repeat bv_simplify H0.      
+      replace (bv_wrap 64 (bv_unsigned _)) with  (bv_unsigned (bv_extract 95 15 c)) in H0; [|  bv_simp_r; bitblast].
+      rewrite <- (@Z.mul_cancel_r _ _ (2^95)) in H0; [| lia].
+      rewrite <- (@Z.shiftl_mul_pow2 _ 95) in H0; [| lia].
+      change (bv_wrap 64 0 * 2 ^ 95)%Z with 0%Z in H0.
+      bitblast H0 with n as H1.
+      rewrite bv_extract_unsigned in H1.
+      rewrite bv_wrap_spec_low in H1; [| lia ].
+      rewrite Z.shiftr_spec in H1; [| lia ]. 
+      simpl_arith_r.
+      rewrite <- H1. apply f_equal. lia.
+    - done. 
+    Qed.  
+
+  Lemma cap_valid_and_unsealed_bv_and (c:t) : 
+    cap_is_valid c -> 
+    cap_is_unsealed c -> 
+    bv_and c (BV 129 0x100003FFF800000000000000000000000) =
+    BV 129 (2^128).
+  Proof. 
+    intros Htag Hotype. apply cap_is_valid_bv_and in Htag. apply cap_is_unsealed_bv_and in Hotype. bv_simp_r.
+    bv_simp_r Htag. bv_simp_r Hotype. unfold len. 
+    bitblast as n. 
+    change (bv_unsigned (BV 129 (2 ^ 128))) with (2 ^ 128)%Z in *. 
+    change (bv_unsigned 0) with 0%Z in Hotype.
+    bitblast Htag with n as Htag'. bitblast Hotype with n as Hotype'. 
+    case_bool_decide.
+    - replace n with 128%Z in *; [ | lia ]. done. 
+    - assert (Hn: (n < Z.of_N 128)%Z); [ lia |]. 
+      replace (Z.testbit (2 ^ 128) n) with false.
+      { replace (Z.testbit (bv_unsigned (BV 129 340283664955539015913149571259078541312)) n) with (Z.testbit (bv_unsigned (BV 129 1298034600552449774963827310329856)) n); 
+      [ | replace (bv_unsigned 1298034600552449774963827310329856) with 1298034600552449774963827310329856%Z; 
+      [ replace (bv_unsigned 340283664955539015913149571259078541312) with 340283664955539015913149571259078541312%Z; [ bitblast | bv_solve ] | bv_solve ] ].
+      exact Hotype'. }
+      { rewrite Z.pow2_bits_false; [ reflexivity | lia ]. }    
+    Qed.
+
+  Lemma cap_is_unsealed_eq_vec (c : t ): 
+    cap_is_unsealed c <-> Operators_mwords.eq_vec (CapFns.CapGetObjectType c) (MachineWord.MachineWord.zeros (Pos.to_nat (63 + 1))) = true.
+  Proof. 
+    split.
+    - intro H. unfold cap_is_unsealed, cap_is_sealed, CapFns.CapIsSealed, CapFns.Zeros, Operators_mwords.neq_vec, CapFns.CAP_VALUE_NUM_BITS, CapFns.CAP_VALUE_HI_BIT, CapFns.CAP_VALUE_LO_BIT in H. apply Is_true_true_1. simpl in H. 
+    rewrite negb_involutive in H. done. 
+    - intro H. unfold cap_is_unsealed, cap_is_sealed, CapFns.CapIsSealed, CapFns.Zeros, Operators_mwords.neq_vec. simpl. rewrite H. done.
+  Qed.
+  
+(* End of Translation definitions. *)
 
   Lemma cap_invalidate_invalidates (c:t) : cap_is_valid (cap_invalidate c) = false.
   Proof.
@@ -1230,31 +1361,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     reflexivity.
     Qed.
 
-  Lemma subrange_vec_dec_after_clear_tag (c:t) (hi lo : Z) :
-    let c : mword 129 := c in
-    (hi <? 128)%Z -> (lo <? hi)%Z ->
-    subrange_vec_dec c hi lo = subrange_vec_dec (CapWithTagClear c) hi lo.
-  Proof.
-    intros x H J. 
-    assert (Hp: (hi < 128)%Z); [ apply Is_true_eq_true in H; lia |].
-    unfold subrange_vec_dec, CapWithTagClear, CapSetTag, CAP_TAG_BIT, autocast. 
-    simpl. bv_simplify.
-    destruct (Z.eq_dec _ _); [| reflexivity].
-    unfold MachineWord.slice, MachineWord.zero_extend, MachineWord.N_to_word. simpl.
-    change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.
-    unfold update_vec_dec, update_mword_dec. simpl. 
-    unfold MachineWord.set_bit, MachineWord.update_slice, MachineWord.slice. simpl.
-    replace (bv_extract _ 0 _) with (bv_0 0); [| bv_simplify; bitblast].
-    bv_simplify.    
-    rewrite bv_zero_extend_idemp.
-    change (bv_zero_extend _ _) with (bv_concat 129 (bv_0 1) (bv_extract 0 128 c)).
-    replace (N.of_nat (Z.to_nat lo)) with (Z.to_N lo); [| rewrite Z_nat_N; reflexivity].
-    replace (bv_extract _ _ (bv_concat _ _ _)) with (bv_extract (Z.to_N lo) (N.of_nat (Z.to_nat hi - Z.to_nat lo + 1)) (bv_extract 0 128 c)); [| bv_simplify; reflexivity].
-    set (len := (N.of_nat (Z.to_nat hi - Z.to_nat lo + 1))).
-    replace (bv_extract _ _ (bv_extract _ _ _)) with (bv_extract (Z.to_N lo) len c). reflexivity.
-    bv_simplify. rewrite bv_extract_unsigned. rewrite bv_extract_unsigned. bv_simplify.  bitblast.       
-    Qed.  
-
   Lemma cap_get_set_value (c:t) (a:AddressValue.t) :
     cap_get_value (cap_set_value c a) = a.
   Proof.
@@ -1266,9 +1372,14 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         bitblast.
   Qed. 
     
-  (* Lemma cap_invalidate_preserves_bounds (c:t) : cap_get_bounds c = cap_get_bounds (cap_invalidate c).
+  Lemma cap_seal_preserves_value (c:t) (ot : ObjType.t) `{ArithFact ((bv_to_Z_unsigned ot >? 0)%Z && (bv_to_Z_unsigned ot <=? 4)%Z)} : 
+    cap_get_value c = cap_get_value (cap_seal_immediate c ot).
   Proof.
-      Admitted. *)
+    unfold cap_seal_immediate, cap_get_value.
+    destruct (cap_is_valid c && cap_is_unsealed c).
+    { unfold_cap. bitblast. }
+    { fold (cap_get_value c). fold (cap_get_value (cap_invalidate (cap_set_objtype c ot))). rewrite <- cap_invalidate_preserves_value. unfold_cap. bitblast. }
+  Qed.
   
 End Capability.  
 

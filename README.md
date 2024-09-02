@@ -16,7 +16,7 @@ Make sure to run `eval $(opam env --switch=coq-cheri-capabilities)` (or whicheve
 ```
 opam repo add --this-switch coq-released https://coq.inria.fr/opam/released
 opam repo add --this-switch iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-opam pin -n coq-sail-stdpp https://github.com/rems-project/coq-sail.git
+opam pin -n coq-sail-stdpp https://github.com/rems-project/coq-sail.git#f319aad
 ```
 
 4. You may now install the opam package `coq-cheri-capabilities` and its dependencies with
