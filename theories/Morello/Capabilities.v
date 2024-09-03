@@ -1409,6 +1409,41 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       reflexivity.
   Qed.
 
+  (* Consider migrating these functions to the libraries where the functions that reason about are defined *)
+  Lemma byte_chunks_len {a} (l : list a) l'  :
+    (8 | length l)%nat → 
+    byte_chunks l = Some l' → 
+    length l' = ((length l)/8)%nat.
+  Proof.
+    intro Hdiv. unfold Nat.divide in Hdiv. destruct Hdiv as [q Hdiv].
+
+    assert (P: ∀ q (l : list a) l', length l = (q*8)%nat → byte_chunks l = Some l' → length l' = q).
+    { intro q'. induction q' as [| n IH].
+      { intros l0 l0' Hlen Hbytes. simpl in Hlen. apply nil_length_inv in Hlen. subst.
+        simpl in Hbytes. injection Hbytes. intros. subst. done. }
+      { intros l0 l0' Hlen Hbytes. unfold byte_chunks in Hbytes.
+        destruct l0 eqn:E; [ done |].
+        repeat case_match; try done. 
+        assert (Hlensub: length l8 = (n*8)%nat).
+        { repeat rewrite cons_length in Hlen. simpl in Hlen. lia. }
+          specialize IH with (l:=l8) (l':=l9). 
+          apply IH in Hlensub; [| done]. 
+          injection Hbytes. intro H'.
+          rewrite <- H'. rewrite cons_length. lia. } }
+    
+    intro Hbytes. specialize P with (l:=l). apply P; try done.
+    rewrite Hdiv. rewrite Nat.div_mul; lia.    
+  Qed.
+
+  Lemma bits_of_len {n} (w : mword n) :
+    length (bits_of w) = Z.to_nat n.
+  Proof.
+    unfold bits_of. rewrite map_length.
+    unfold mword_to_bools. 
+    rewrite MachineWord.word_to_bools_length. 
+    reflexivity.
+  Qed.
+  
   Lemma cap_encode_length:
     forall c t l t', encode t c = Some (l, t') -> List.length l = sizeof_cap.
   Proof.
@@ -1421,14 +1456,30 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         | _ => destruct X eqn:?
         end
            end; inversion H.
-
     clear H H2.
     subst l1.
     unfold sizeof_cap.
     apply try_map_length in Heqo0.
     rewrite <- Heqo0.
     clear Heqo0.
-  Admitted.
+    unfold mem_bytes_of_bits in Heqo.
+    unfold option_map in Heqo. case_match; try done.
+    injection Heqo; clear Heqo; intro Heqo.
+    unfold bytes_of_bits in H.
+    unfold len in *.
+    change (Z.of_N 129) with 129%Z in *.
+    rewrite <- Heqo.
+    rewrite rev_length.
+    assert (L : base.length (bits_of (vec_of_bits (list.tail (@bits_of 129 c)))) = 128%nat).
+    { rewrite bits_of_len. unfold length_list. rewrite Nat2Z.id.
+      destruct (@bits_of 129 c) eqn:E; [discriminate|].
+      simpl. replace (length l2) with (length (@bits_of 129 c) - 1)%nat.
+      { by rewrite bits_of_len. }
+      { rewrite E. simpl. lia. } }
+    apply byte_chunks_len in H.
+    { rewrite H. rewrite L. simpl. reflexivity. }
+    { rewrite L. exists 16%nat. simpl. reflexivity. }
+  Qed.   
 
   Lemma cap_exact_encode_decode:
     forall c c' t l, encode true c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
