@@ -989,7 +989,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         end
     end.
 
-  Definition encode (isexact : bool) (c : t) : option ((list ascii) * bool) :=
+  Definition encode (c : t) : option ((list ascii) * bool) :=
     let tag : bool := cap_is_valid c in 
     let c : (mword (Z.of_N len)) := c in  
     let cap_bits := bits_of c in 
@@ -1445,9 +1445,9 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Qed.
   
   Lemma cap_encode_length:
-    forall c t l t', encode t c = Some (l, t') -> List.length l = sizeof_cap.
+    forall c l t', encode c = Some (l, t') -> List.length l = sizeof_cap.
   Proof.
-    intros c t l t' H.
+    intros c l t' H.
     unfold encode in H.
     repeat match goal with
     | [ H : context [ match ?X with _ => _ end ] |- _] =>
@@ -1481,66 +1481,102 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     { rewrite L. exists 16%nat. simpl. reflexivity. }
   Qed.   
 
-  Lemma cap_is_valid_bv c :
-    cap_is_valid c = ((@bv_extract 129 1 1 c) =? 1)%bv.
+  Lemma cap_is_valid_bv c : 
+    cap_is_valid c = ((@bv_extract 129 128 1 c) =? 1)%bv.
   Admitted.
+
+  Lemma bits_of_vec_hd h l : 
+    bits_of (vec_of_bits (h::l)) = bits_of ((concat_vec (vec_of_bits [h]) (vec_of_bits l))).
+  Admitted.
+
+  Lemma hd_bits_of_vec h l : 
+    h ≠ BU → 
+    bits_of (concat_vec (vec_of_bits [h]) (vec_of_bits l)) = h :: bits_of (vec_of_bits l).
+  Proof.
+    assert (H: ∀ n l, length l = n → bits_of (concat_vec (vec_of_bits [h]) (vec_of_bits l)) = h :: bits_of (vec_of_bits l)).
+    {
+      intro n. induction n as [ | m IH ].
+      + intros l' H. apply nil_length_inv in H. subst. 
+        destruct h eqn:H.
+        - by vm_compute.  
+        - by vm_compute.
+        - simpl. vm_compute (vec_of_bits []).
+          unfold vec_of_bits. unfold bool_of_bit. simpl. unfold of_bools.
+          unfold bools_to_mword. unfold MachineWord.bools_to_word. simpl.
+          unfold MachineWord.N_to_word. 
+          unfold to_word_nat.
+          simpl. 
+          unfold bits_of. 
+          destruct (dummy false) eqn:D.
+          {  simpl. admit. }
+          vm_compute (dummy false).
+          replace (dummy false) with false.
+  Admitted.    
 
   Lemma bits_to_vec_to_bits l : 
     bits_of (vec_of_bits l) = l.
-  Admitted.
+  Proof.
+    assert (H: ∀ n l, length l = n → bits_of (vec_of_bits l) = l).
+    { intro n. induction n as [ | m IH ].
+      + intros l' H. apply nil_length_inv in H. subst. by vm_compute.
+      + intros l' H. destruct l' as [| h tl]; try discriminate.
+        rewrite cons_length in H. inversion H as [H1].
+        specialize IH with (l:=tl). apply IH in H1 as H2.
 
-  Lemma mword_to_bits_to_mword {n} (c : mword n) :
+        rewrite bits_of_vec_hd.
+        rewrite hd_bits_of_vec. by rewrite H2.
+        admit.
+    }
+    by apply (H (length l)).
+  Admitted.
+        
+  Lemma mword_to_bits_to_mword {n} (c : mword n) : 
     uint (vec_of_bits (bits_of c)) = uint c.
   Admitted.
-  
-  Lemma bytes_to_bits_to_bytes l l' l''  :
+
+  Lemma bytes_to_bits_to_bytes l l' l'' : 
     byte_chunks l = Some l' → 
     try_map memory_byte_to_ascii (rev l') = Some l'' → 
     map bitU_of_bool (bool_bits_of_bytes (rev l'')) = l.
   Admitted.
-  
-  Lemma cap_exact_encode_decode:
-    forall c c' t l, encode true c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
-  Proof.
-    intros c c' t l E D.
-    apply eqb_eq.
 
-    unfold encode in E. case_match eqn:E1; try done. case_match eqn:E2; try done.
+  Lemma mword_to_bools_split (c: bv 129) :
+    @mword_to_bools 129 c = (((@bv_extract 129 128 1 c =? 1)) :: (@mword_to_bools 128(@bv_extract 129 0 128 c)))%list.
+  Admitted.
+
+  Lemma cap_exact_encode_decode :
+    forall c c' t l, encode c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
+  Proof.
+    intros c c' t l E D. apply eqb_eq.
+
+    unfold encode in E. case_match eqn:E1; try done. case_match; try done.
     inversion E; clear E; subst.
 
-    unfold decode in D. case_match eqn:D1; try done. case_match eqn:D2; try done.      
-    inversion D; clear D; subst; clear D1.
+    unfold decode in D. case_match eqn:D1; try done; clear D1. case_match eqn:D2; try done.      
+    inversion D; clear D; subst.
     
-    unfold mem_bytes_of_bits in E1. unfold bytes_of_bits in E1.
-    unfold option_map in E1. case_match eqn:E3; try done.
+    unfold mem_bytes_of_bits in E1. unfold bytes_of_bits in E1. unfold option_map in E1. case_match eqn:E3; try done.
     inversion E1; clear E1; subst.
-    unfold t, len in *.
-    
-    replace (list.tail (@bits_of (Z.of_N 129) c)) with (@bits_of (Z.of_N 128) (bv_extract 0 128 c)) in E3.
-    { 
-      apply (bytes_to_bits_to_bytes _ l1 l) in E3; try assumption. 
-      replace (map bitU_of_bool (cap_is_valid c :: bool_bits_of_bytes (rev l))) with 
-        (bitU_of_bool (cap_is_valid c) :: map bitU_of_bool (bool_bits_of_bytes (rev l))) in D2.
-        { rewrite E3 in D2. rewrite bits_to_vec_to_bits in D2. rewrite cap_is_valid_bv in D2.
-        
-          unfold bitU_of_bool in D2. case_match eqn:M.
-          + replace (B1 :: @bits_of (Z.of_N 128) (bv_extract 0 128 c)) with (@bits_of (Z.of_N 129) c) in D2.
-            - apply Z_to_bv_checked_Some in D2. apply bv_eq. rewrite <- D2.
-              rewrite mword_to_bits_to_mword. unfold uint. simpl. 
-              unfold MachineWord.word_to_N. rewrite Z2N.id; [ done | apply bv_unsigned_in_range ].
-            - replace B1 with (bitU_of_bool ((bv_extract 1 1 c =? 1))).
-              { unfold bits_of at 2. unfold mword_to_bools; simpl; unfold MachineWord.word_to_bools.
-                admit. }
-              { rewrite M. reflexivity. } 
-          + admit.      
-        } 
-        { reflexivity. }
-    }
-    { unfold bits_of. unfold mword_to_bools, MachineWord.word_to_bools; simpl.
-      replace c with (bv_concat 129 (bv_extract 128 1 c) (bv_extract 0 128 c)) at 2; [| bv_simplify; bitblast].
-      admit. }
 
-  Admitted.
+    apply Z_to_bv_checked_Some in D2. apply bv_eq. rewrite <- D2. 
+    apply (bytes_to_bits_to_bytes _ l1 l) in E3; try assumption. simpl.
+    rewrite E3. rewrite bits_to_vec_to_bits.
+
+    rewrite cap_is_valid_bv. 
+    
+    destruct (bv_extract 128 1 c =? 1) eqn:H_c_valid; 
+      unfold t, len in *; rewrite H_c_valid; simpl; 
+        [ replace B1 with (bitU_of_bool (bv_extract 128 1 c =? 1)); [| rewrite H_c_valid; reflexivity] 
+        | replace B0 with (bitU_of_bool (bv_extract 128 1 c =? 1)); [| rewrite H_c_valid; reflexivity]].
+    all:  
+      unfold bits_of;
+      rewrite mword_to_bools_split;
+      rewrite map_cons; simpl; rewrite <- map_cons; rewrite <- mword_to_bools_split;
+      fold (@bits_of 129 c);
+      rewrite mword_to_bits_to_mword;
+      unfold uint; simpl;
+      unfold MachineWord.word_to_N; rewrite Z2N.id; [ done | apply bv_unsigned_in_range ].
+  Qed.
 
 End Capability.
 

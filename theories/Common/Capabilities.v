@@ -279,12 +279,9 @@ Module Type CAPABILITY
   Parameter decode: list ascii -> bool -> option t.
 
   (** Encode capability as list of bytes.
-        boolean argument specifies if bounds need to be encoded
-        exactly. if exact encoding is requested but not possible, inParameterid
-        capability will be returned.
-        Retuns memory-encoded capability and validity tag.
+      Retuns memory-encoded capability and validity tag.
    *)
-  Parameter encode: bool -> t -> option ((list ascii) * bool).
+  Parameter encode: t -> option ((list ascii) * bool).
 
   (* --- Compression-related --- *)
 
@@ -333,10 +330,10 @@ Module Type CAPABILITY
   Parameter cap_invalidate_preserves_value: forall c, cap_get_value c = cap_get_value (cap_invalidate c).
 
   Parameter cap_encode_length:
-    forall c t l t', encode t c = Some (l, t') -> List.length l = sizeof_cap.
+    forall c l t, encode c = Some (l, t) -> List.length l = sizeof_cap.
 
   Parameter cap_exact_encode_decode:
-    forall c c' t l, encode true c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
+    forall c c' t l, encode c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
 
 
 End CAPABILITY.
