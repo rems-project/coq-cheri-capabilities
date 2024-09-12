@@ -649,15 +649,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 
   Definition of_bvn (b:bvn) (tag:bool) : option t := 
     if (b.(bvn_n) =? (len-1))%N then 
-      let bits : (list bool) := tag::(bools_of_int (Z.of_N len-1) b.(bvn_val).(bv_unsigned)) in
-      let bitsu := List.map bitU_of_bool bits in
-      let w : (mword _) := vec_of_bits bitsu in
-      let z : Z := int_of_mword false w in 
-      let c : option t := Z_to_bv_checked len z in 
-      match c with 
-        Some c => Some c
-      | None   => None
-      end
+      let tag_bv : (bv 1) := if tag then Z_to_bv 1 1 else Z_to_bv 1 0 in 
+      Some (bv_concat len tag_bv b.(bvn_val))
     else 
       None.
      
@@ -992,6 +985,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition encode (c : t) : option ((list ascii) * bool) :=
     let tag : bool := cap_is_valid c in 
     let c : (mword (Z.of_N len)) := c in  
+    let c : (mword (Z.of_N len)) := c in
     let cap_bits := bits_of c in 
     let w : (mword _) := vec_of_bits (List.tail cap_bits) in
     match mem_bytes_of_bits w with
