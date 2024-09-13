@@ -251,7 +251,7 @@ Module test_cap_getters_and_setters.
 
   Example encode_and_decode_test_1 :     
     let tester := fun cap:Capability.t => 
-      let encoded_cap : option ((list ascii) * bool) := encode true cap in 
+      let encoded_cap : option ((list ascii) * bool) := encode cap in 
       let decoded_cap : option Capability.t :=
         match encoded_cap with 
           Some (l,tag) => (decode l tag) | None => None

@@ -8,7 +8,7 @@ Require Import Coq.Numbers.BinNums.
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Bool.Bool.
 
-Require Import Addr.
+From CheriCaps.Common Require Import Addr.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -129,7 +129,8 @@ Module Type CAPABILITY
 
   Parameter min_ptraddr : V.t.
   Parameter max_ptraddr : V.t.
-  Parameter sizeof_ptraddr: nat.
+  Parameter sizeof_cap: nat. (* in bytes, without tag *)
+  Parameter sizeof_ptraddr: nat. (* in bytes *)
 
   (** access to various cap fields **)
 
@@ -278,12 +279,9 @@ Module Type CAPABILITY
   Parameter decode: list ascii -> bool -> option t.
 
   (** Encode capability as list of bytes.
-        boolean argument specifies if bounds need to be encoded
-        exactly. if exact encoding is requested but not possible, inParameterid
-        capability will be returned.
-        Retuns memory-encoded capability and validity tag.
+      Retuns memory-encoded capability and validity tag.
    *)
-  Parameter encode: bool -> t -> option ((list ascii) * bool).
+  Parameter encode: t -> option ((list ascii) * bool).
 
   (* --- Compression-related --- *)
 
@@ -330,5 +328,12 @@ Module Type CAPABILITY
   Parameter cap_invalidate_invalidates: forall c, cap_is_valid (cap_invalidate c) = false.
 
   Parameter cap_invalidate_preserves_value: forall c, cap_get_value c = cap_get_value (cap_invalidate c).
+
+  Parameter cap_encode_length:
+    forall c l t, encode c = Some (l, t) -> List.length l = sizeof_cap.
+
+  Parameter cap_exact_encode_decode:
+    forall c c' t l, encode c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
+
 
 End CAPABILITY.

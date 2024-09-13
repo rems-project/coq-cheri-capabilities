@@ -660,6 +660,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition cap_SEAL_TYPE_LB : ObjType.t := ObjType.of_Z 3.
 
   Definition sizeof_ptraddr := 8%nat. (* in bytes *)
+  Definition sizeof_cap := 16%nat. (* in bytes, without tag *)
   (* Definition ptraddr_bits := sizeof_ptraddr * 8. *)
   Definition min_ptraddr := Z_to_bv (N.of_nat (sizeof_ptraddr*8)) 0.  
   Definition max_ptraddr := Z_to_bv (N.of_nat (sizeof_ptraddr*8)) (Z.sub (bv_modulus (N.of_nat (sizeof_ptraddr*8))) 1).
@@ -981,8 +982,9 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         end
     end.
 
-  Definition encode (isexact : bool) (c : t) : option ((list ascii) * bool) :=
+  Definition encode (c : t) : option ((list ascii) * bool) :=
     let tag : bool := cap_is_valid c in 
+    let c : (mword (Z.of_N len)) := c in  
     let c : (mword (Z.of_N len)) := c in
     let cap_bits := bits_of c in 
     let w : (mword _) := vec_of_bits (List.tail cap_bits) in
@@ -1373,8 +1375,204 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     { unfold_cap. bitblast. }
     { fold (cap_get_value c). fold (cap_get_value (cap_invalidate (cap_set_objtype c ot))). rewrite <- cap_invalidate_preserves_value. unfold_cap. bitblast. }
   Qed.
+
+  Fact try_map_length
+    {A B:Type}
+    (f : A -> option B) (l:list A)
+    (l':list B):
+    try_map f l = Some l' -> length l = length l'.
+  Proof.
+    intros H.
+    revert l' H.
+    induction l.
+    -
+      intros l' H.
+      cbn in *.
+      inversion H.
+      reflexivity.
+    -
+      intros l' H.
+      cbn in *.
+      destruct (f a) eqn:Hfa; [| inversion H].
+      destruct (try_map f l) eqn:Htry; [| inversion H].
+      destruct l' as [| l0' l']; inversion H.
+      subst.
+      cbn.
+      f_equal.
+      apply IHl.
+      reflexivity.
+  Qed.
+
+  (* Consider migrating these functions to the libraries where the functions that reason about are defined *)
+  Lemma byte_chunks_len {a} (l : list a) l'  :
+    (8 | length l)%nat → 
+    byte_chunks l = Some l' → 
+    length l' = ((length l)/8)%nat.
+  Proof.
+    intro Hdiv. unfold Nat.divide in Hdiv. destruct Hdiv as [q Hdiv].
+
+    assert (P: ∀ q (l : list a) l', length l = (q*8)%nat → byte_chunks l = Some l' → length l' = q).
+    { intro q'. induction q' as [| n IH].
+      { intros l0 l0' Hlen Hbytes. simpl in Hlen. apply nil_length_inv in Hlen. subst.
+        simpl in Hbytes. injection Hbytes. intros. subst. done. }
+      { intros l0 l0' Hlen Hbytes. unfold byte_chunks in Hbytes.
+        destruct l0 eqn:E; [ done |].
+        repeat case_match; try done. 
+        assert (Hlensub: length l8 = (n*8)%nat).
+        { repeat rewrite cons_length in Hlen. simpl in Hlen. lia. }
+          specialize IH with (l:=l8) (l':=l9). 
+          apply IH in Hlensub; [| done]. 
+          injection Hbytes. intro H'.
+          rewrite <- H'. rewrite cons_length. lia. } }
+    
+    intro Hbytes. specialize P with (l:=l). apply P; try done.
+    rewrite Hdiv. rewrite Nat.div_mul; lia.    
+  Qed.
+
+  Lemma bits_of_len {n} (w : mword n) :
+    length (bits_of w) = Z.to_nat n.
+  Proof.
+    unfold bits_of. rewrite map_length.
+    unfold mword_to_bools. 
+    rewrite MachineWord.word_to_bools_length. 
+    reflexivity.
+  Qed.
   
-End Capability.  
+  Lemma cap_encode_length:
+    forall c l t', encode c = Some (l, t') -> List.length l = sizeof_cap.
+  Proof.
+    intros c l t' H.
+    unfold encode in H.
+    repeat match goal with
+    | [ H : context [ match ?X with _ => _ end ] |- _] =>
+        match type of X with
+        | sumbool _ _ => destruct X
+        | _ => destruct X eqn:?
+        end
+           end; inversion H.
+    clear H H2.
+    subst l1.
+    unfold sizeof_cap.
+    apply try_map_length in Heqo0.
+    rewrite <- Heqo0.
+    clear Heqo0.
+    unfold mem_bytes_of_bits in Heqo.
+    unfold option_map in Heqo. case_match; try done.
+    injection Heqo; clear Heqo; intro Heqo.
+    unfold bytes_of_bits in H.
+    unfold len in *.
+    change (Z.of_N 129) with 129%Z in *.
+    rewrite <- Heqo.
+    rewrite rev_length.
+    assert (L : base.length (bits_of (vec_of_bits (list.tail (@bits_of 129 c)))) = 128%nat).
+    { rewrite bits_of_len. unfold length_list. rewrite Nat2Z.id.
+      destruct (@bits_of 129 c) eqn:E; [discriminate|].
+      simpl. replace (length l2) with (length (@bits_of 129 c) - 1)%nat.
+      { by rewrite bits_of_len. }
+      { rewrite E. simpl. lia. } }
+    apply byte_chunks_len in H.
+    { rewrite H. rewrite L. simpl. reflexivity. }
+    { rewrite L. exists 16%nat. simpl. reflexivity. }
+  Qed.   
+
+  Lemma cap_is_valid_bv c : 
+    cap_is_valid c = ((@bv_extract 129 128 1 c) =? 1)%bv.
+  Admitted.
+
+  Lemma bits_of_vec_hd h l : 
+    bits_of (vec_of_bits (h::l)) = bits_of ((concat_vec (vec_of_bits [h]) (vec_of_bits l))).
+  Admitted.
+
+  Lemma hd_bits_of_vec h l : 
+    h ≠ BU → 
+    bits_of (concat_vec (vec_of_bits [h]) (vec_of_bits l)) = h :: bits_of (vec_of_bits l).
+  Proof.
+    assert (H: ∀ n l, length l = n → bits_of (concat_vec (vec_of_bits [h]) (vec_of_bits l)) = h :: bits_of (vec_of_bits l)).
+    {
+      intro n. induction n as [ | m IH ].
+      + intros l' H. apply nil_length_inv in H. subst. 
+        destruct h eqn:H.
+        - by vm_compute.  
+        - by vm_compute.
+        - simpl. vm_compute (vec_of_bits []).
+          unfold vec_of_bits. unfold bool_of_bit. simpl. unfold of_bools.
+          unfold bools_to_mword. unfold MachineWord.bools_to_word. simpl.
+          unfold MachineWord.N_to_word. 
+          unfold to_word_nat.
+          simpl. 
+          unfold bits_of. 
+          destruct (dummy false) eqn:D.
+          {  simpl. admit. }
+          vm_compute (dummy false).
+          replace (dummy false) with false.
+  Admitted.    
+
+  Lemma bits_to_vec_to_bits l : 
+    bits_of (vec_of_bits l) = l.
+  Proof.
+    assert (H: ∀ n l, length l = n → bits_of (vec_of_bits l) = l).
+    { intro n. induction n as [ | m IH ].
+      + intros l' H. apply nil_length_inv in H. subst. by vm_compute.
+      + intros l' H. destruct l' as [| h tl]; try discriminate.
+        rewrite cons_length in H. inversion H as [H1].
+        specialize IH with (l:=tl). apply IH in H1 as H2.
+
+        rewrite bits_of_vec_hd.
+        rewrite hd_bits_of_vec. by rewrite H2.
+        admit.
+    }
+    by apply (H (length l)).
+  Admitted.
+        
+  Lemma mword_to_bits_to_mword {n} (c : mword n) : 
+    uint (vec_of_bits (bits_of c)) = uint c.
+  Admitted.
+
+  Lemma bytes_to_bits_to_bytes l l' l'' : 
+    byte_chunks l = Some l' → 
+    try_map memory_byte_to_ascii (rev l') = Some l'' → 
+    map bitU_of_bool (bool_bits_of_bytes (rev l'')) = l.
+  Admitted.
+
+  Lemma mword_to_bools_split (c: bv 129) :
+    @mword_to_bools 129 c = (((@bv_extract 129 128 1 c =? 1)) :: (@mword_to_bools 128(@bv_extract 129 0 128 c)))%list.
+  Admitted.
+
+  Lemma cap_exact_encode_decode :
+    forall c c' t l, encode c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
+  Proof.
+    intros c c' t l E D. apply eqb_eq.
+
+    unfold encode in E. case_match eqn:E1; try done. case_match; try done.
+    inversion E; clear E; subst.
+
+    unfold decode in D. case_match eqn:D1; try done; clear D1. case_match eqn:D2; try done.      
+    inversion D; clear D; subst.
+    
+    unfold mem_bytes_of_bits in E1. unfold bytes_of_bits in E1. unfold option_map in E1. case_match eqn:E3; try done.
+    inversion E1; clear E1; subst.
+
+    apply Z_to_bv_checked_Some in D2. apply bv_eq. rewrite <- D2. 
+    apply (bytes_to_bits_to_bytes _ l1 l) in E3; try assumption. simpl.
+    rewrite E3. rewrite bits_to_vec_to_bits.
+
+    rewrite cap_is_valid_bv. 
+    
+    destruct (bv_extract 128 1 c =? 1) eqn:H_c_valid; 
+      unfold t, len in *; rewrite H_c_valid; simpl; 
+        [ replace B1 with (bitU_of_bool (bv_extract 128 1 c =? 1)); [| rewrite H_c_valid; reflexivity] 
+        | replace B0 with (bitU_of_bool (bv_extract 128 1 c =? 1)); [| rewrite H_c_valid; reflexivity]].
+    all:  
+      unfold bits_of;
+      rewrite mword_to_bools_split;
+      rewrite map_cons; simpl; rewrite <- map_cons; rewrite <- mword_to_bools_split;
+      fold (@bits_of 129 c);
+      rewrite mword_to_bits_to_mword;
+      unfold uint; simpl;
+      unfold MachineWord.word_to_N; rewrite Z2N.id; [ done | apply bv_unsigned_in_range ].
+  Qed.
+
+End Capability.
 
 
 Module ExampleCaps.
