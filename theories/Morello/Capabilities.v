@@ -1403,7 +1403,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       reflexivity.
   Qed.
 
-  (* Consider migrating these functions to the libraries where the functions that reason about are defined *)
+  (* Consider migrating these functions to the libraries where the functions they reason about are defined *)
   Lemma byte_chunks_len {a} (l : list a) l'  :
     (8 | length l)%nat → 
     byte_chunks l = Some l' → 
@@ -1538,7 +1538,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     @mword_to_bools 129 c = (((@bv_extract 129 128 1 c =? 1)) :: (@mword_to_bools 128(@bv_extract 129 0 128 c)))%list.
   Admitted.
 
-  Lemma cap_exact_encode_decode :
+  Lemma cap_exact_encode_decode_weak :
     forall c c' t l, encode c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
   Proof.
     intros c c' t l E D. apply eqb_eq.
@@ -1571,6 +1571,13 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       unfold uint; simpl;
       unfold MachineWord.word_to_N; rewrite Z2N.id; [ done | apply bv_unsigned_in_range ].
   Qed.
+
+  Lemma cap_encode_decode:
+    ∀ cap bytes t,
+      encode cap = Some (bytes, t) → 
+      decode bytes t = Some cap.
+  Proof. 
+  Admitted.
 
 End Capability.
 
