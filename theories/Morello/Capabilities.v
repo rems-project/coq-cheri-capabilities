@@ -4,6 +4,7 @@ Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Strings.HexString.
 From Coq.Structures Require Import OrderedType OrderedTypeEx.
+From Coq Require Import ssreflect.
 
 From stdpp Require Import bitvector bitblast bitvector_tactics.
 
@@ -998,7 +999,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     end.
 
   Definition decode (bytes : list ascii) (tag : bool) : option t :=
-    if Nat.eq_dec (List.length bytes) 16%nat then
+    if bool_decide (List.length bytes = 16%nat) then
       let bytes := List.rev bytes in (* TODO: bypassing rev could make this more efficient *)
       let bits : (list bool) := tag::(bool_bits_of_bytes bytes) in
       let bitsu := List.map bitU_of_bool bits in
@@ -1269,8 +1270,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       change (bv_wrap 64 0 * 2 ^ 95)%Z with 0%Z in H0.
       bitblast H0 with n as H1.
       rewrite bv_extract_unsigned in H1.
-      rewrite bv_wrap_spec_low in H1; [| lia ].
-      rewrite Z.shiftr_spec in H1; [| lia ]. 
+      rewrite bv_wrap_spec_low in H1; [ lia |].
+      rewrite Z.shiftr_spec in H1; [ lia |]. 
       simpl_arith_r.
       rewrite <- H1. apply f_equal. lia.
     - done. 
@@ -1296,7 +1297,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       [ | replace (bv_unsigned 1298034600552449774963827310329856) with 1298034600552449774963827310329856%Z; 
       [ replace (bv_unsigned 340283664955539015913149571259078541312) with 340283664955539015913149571259078541312%Z; [ bitblast | bv_solve ] | bv_solve ] ].
       exact Hotype'. }
-      { rewrite Z.pow2_bits_false; [ reflexivity | lia ]. }    
+      { rewrite Z.pow2_bits_false; [ lia | reflexivity ]. }    
     Qed.
 
   Lemma cap_is_unsealed_eq_vec (c : t ): 
@@ -1313,7 +1314,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Lemma cap_invalidate_invalidates (c:t) : cap_is_valid (cap_invalidate c) = false.
   Proof.
     unfold cap_invalidate, cap_is_valid.
-    rewrite eqb_false_iff, not_false_iff_true.
+    rewrite eqb_false_iff not_false_iff_true.
     unfold CapIsTagClear, CapWithTagClear.
     rewrite eq_vec_true_iff.    
     unfold CapGetTag, CapSetTag, CAP_TAG_BIT.     
@@ -1518,7 +1519,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         specialize IH with (l:=tl). apply IH in H1 as H2.
 
         rewrite bits_of_vec_hd.
-        rewrite hd_bits_of_vec. by rewrite H2.
+        rewrite hd_bits_of_vec.
+        2:{ by rewrite H2. }
         admit.
     }
     by apply (H (length l)).
@@ -1538,7 +1540,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     @mword_to_bools 129 c = (((@bv_extract 129 128 1 c =? 1)) :: (@mword_to_bools 128(@bv_extract 129 0 128 c)))%list.
   Admitted.
 
-  Lemma cap_exact_encode_decode_weak :
+  Lemma cap_encode_decode :
     forall c c' t l, encode c = Some (l, t) -> decode l t = Some c' -> eqb c c' = true.
   Proof.
     intros c c' t l E D. apply eqb_eq.
@@ -1569,14 +1571,23 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       fold (@bits_of 129 c);
       rewrite mword_to_bits_to_mword;
       unfold uint; simpl;
-      unfold MachineWord.word_to_N; rewrite Z2N.id; [ done | apply bv_unsigned_in_range ].
+      unfold MachineWord.word_to_N; rewrite Z2N.id; [ apply bv_unsigned_in_range | done ].
   Qed.
 
-  Lemma cap_encode_decode:
-    ∀ cap bytes t,
-      encode cap = Some (bytes, t) → 
-      decode bytes t = Some cap.
-  Proof. 
+  Lemma bits_of_bytes_len l : 
+    length (bool_bits_of_bytes l) = (8 * length l)%nat.
+  Admitted.
+
+  Lemma cap_encode_valid:
+    forall cap cb b, 
+      cap_is_valid cap = true -> encode cap = Some (cb, b) -> b = true.
+  Admitted.
+
+  Lemma cap_encode_decode_bounds:
+    forall cap bytes t,
+      encode cap = Some (bytes, t) ->
+      exists cap', decode bytes t = Some cap'
+              /\ cap_get_bounds cap = cap_get_bounds cap'.
   Admitted.
 
 End Capability.
