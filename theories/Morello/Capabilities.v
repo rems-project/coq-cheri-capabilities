@@ -1479,12 +1479,41 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       cap_is_valid cap = true -> encode cap = Some (cb, b) -> b = true.
   Admitted.
 
-  Lemma cap_is_valid_bv c : 
-    cap_is_valid c = ((@bv_extract 129 128 1 c) =? 1)%bv.
-  Admitted.
+  Lemma cap_is_valid_bv_extract c :
+    cap_is_valid c ↔ bv_extract 128 1 c = (BV 1 1).
+  Proof.
+    split.
+    + intro H. apply cap_is_valid_bv_and in H.
+      unfold t, len in *. bv_simplify. bv_simplify H. 
+      bitblast as n. replace n with 0%Z; [| lia ].
+      assert (P: Z.testbit (bv_unsigned c) 128 = Z.testbit (Z.land (bv_unsigned c) (2 ^ 128)) 128); [ bitblast |]. 
+      rewrite P. rewrite H. bitblast.
+    + intro H. unfold cap_is_valid, CapIsTagClear, CapGetTag. 
+      unfold_cap. unfold t, len in *. unfold MachineWord.N_to_word, CAP_TAG_BIT. unfold_cap.
+      case_decide as P; try done. simpl.      
+      assert (Q: vec_of_bits [@access_vec_dec 64 (bv_zero_extend 64 (vec_of_bits [@access_vec_dec 129 c 128])) 0] = Z_to_bv 1 1).
+      { unfold access_vec_dec, access_mword_dec, MachineWord.get_bit, bitU_of_bool, vec_of_bits, get_word, of_bools, bools_to_mword, MachineWord.bools_to_word, MachineWord.N_to_word; case_match; try done; case_match eqn:H1; try done; simpl.
+        bv_simplify H. change (autocast _) with (Z_to_bv 1 0). 
+        apply bv_eq. rewrite !Z_to_bv_unsigned. simpl. 
+        bitblast as n. bitblast H with n as H2.
+        rewrite <- H1, <- H2. replace n with 0%Z; [| lia ]. done. }
+      by rewrite P in Q.
+  Qed.
 
+  Lemma cap_is_valid_bv_extract_bool c : 
+    cap_is_valid c = (bv_extract 128 1 c =? 1)%bv.
+  Proof.
+    destruct (cap_is_valid c) eqn:E.
+    + apply Is_true_true_2 in E.
+      apply cap_is_valid_bv_extract in E. rewrite E. done. 
+    + assert (bv_extract 128 1 c ≠ (BV 1 1)).
+      { intro H. apply cap_is_valid_bv_extract in H. rewrite E in H. contradiction. }
+      symmetry. apply Z.eqb_neq. by apply bv_neq.
+  Qed.      
+  
   Lemma bits_of_vec_hd h l : 
     bits_of (vec_of_bits (h::l)) = bits_of ((concat_vec (vec_of_bits [h]) (vec_of_bits l))).
+  Proof.
   Admitted.
 
   Lemma hd_bits_of_vec h l : 
@@ -1519,11 +1548,19 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     byte_chunks l = Some l' → 
     try_map memory_byte_to_ascii (rev l') = Some l'' → 
     map bitU_of_bool (bool_bits_of_bytes (rev l'')) = l.
+  Proof.
   Admitted.
 
-  Lemma mword_to_bools_split (c: bv 129) :
-    @mword_to_bools 129 c = (((@bv_extract 129 128 1 c =? 1)) :: (@mword_to_bools 128 (@bv_extract 129 0 128 c)))%list.
+  Lemma bv_to_bits_app_last (c : bv 129) : 
+    bv_to_bits c = (bv_to_bits (bv_extract 0 128 c) ++ [bv_extract 128 1 c =? 1])%list.
   Admitted.
+
+  Lemma mword_to_bools_cons_last (c: bv 129) :
+    @mword_to_bools 129 c = (((bv_extract 128 1 c =? 1)) :: (@mword_to_bools 128 (bv_extract 0 128 c)))%list.
+  Proof.
+    unfold mword_to_bools, MachineWord.word_to_bools; simpl.
+    rewrite <- rev_unit. apply f_equal. by rewrite bv_to_bits_app_last.
+  Qed.
   
   Lemma cap_encode_decode:
     ∀ cap bytes t,
@@ -1547,18 +1584,18 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     { unfold bv_to_bv, bv_to_Z_unsigned. by rewrite Z_to_bv_bv_unsigned. }
     { rewrite Z_to_bv_checked_bv_unsigned. apply f_equal. 
       unfold vec, bv_to_bv, bv_to_Z_unsigned.
-      rewrite cap_is_valid_bv.     
+      rewrite cap_is_valid_bv_extract_bool.     
       destruct (bv_extract 128 1 c =? 1) eqn:H_c_valid; simpl; 
           [ replace B1 with (bitU_of_bool (bv_extract 128 1 c =? 1)); [| by rewrite H_c_valid ] 
           | replace B0 with (bitU_of_bool (bv_extract 128 1 c =? 1)); [| by rewrite H_c_valid ]]. 
       all: unfold bits_of; 
-        have -> : @mword_to_bools 129 c = (bv_extract 128 1 c =? 1) :: @mword_to_bools 128 (bv_extract 0 128 c); [ by rewrite mword_to_bools_split |];
+        have -> : @mword_to_bools 129 c = (bv_extract 128 1 c =? 1) :: @mword_to_bools 128 (bv_extract 0 128 c); [ by rewrite mword_to_bools_cons_last |];
         rewrite map_cons; simpl;
         have -> : vec_of_bits (bitU_of_bool (bv_extract 128 1 c =? 1) :: map bitU_of_bool (@mword_to_bools 128 (bv_extract 0 128 c))) = (vec_of_bits (map bitU_of_bool ((bv_extract 128 1 c =? 1) :: @mword_to_bools 128 (bv_extract 0 128 c))));
         [ unfold vec_of_bits; apply f_equal; by rewrite map_cons 
         | have -> : bv_unsigned (vec_of_bits (map bitU_of_bool ((@bv_extract 129 128 1 c =? 1) :: @mword_to_bools 128 (@bv_extract 129 0 128 c)))) = bv_unsigned (vec_of_bits (map bitU_of_bool (@mword_to_bools 129 c)));
           [ change (N.of_nat (Pos.to_nat (Pos.of_succ_nat _ ))) with 129%N;
-            apply f_equal; unfold vec_of_bits; apply f_equal; by rewrite <- mword_to_bools_split
+            apply f_equal; unfold vec_of_bits; apply f_equal; by rewrite <- mword_to_bools_cons_last
           | fold (@bits_of 129 c); rewrite cap_to_bits_to_cap; by rewrite Z_to_bv_bv_unsigned ] 
         ].
     } 
