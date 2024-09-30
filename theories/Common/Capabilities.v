@@ -219,7 +219,7 @@ Module Type CAPABILITY
       The input permissions should be the ones to be kept.
         Related instructions:
         - CAndPerm in RISC V
-        - CLRPERM in Morello
+        - In Morello, CLRPERM c mask = cap_narrow_perms c ~mask
    *)
   Parameter cap_narrow_perms: t -> P.t -> t.
 

@@ -1,4 +1,3 @@
-Require Export Morello.Capabilities.
 Require Import Coq.Arith.PeanoNat.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
@@ -8,9 +7,10 @@ Require Import Coq.Strings.HexString.
 From stdpp.unstable Require Import bitvector bitvector_tactics. 
 From stdpp Require Import bitvector.
 From SailStdpp Require Import Values Operators_mwords.
-Require Import CapFns.
 
 From CheriCaps.Common Require Import Utils Addr Capabilities.
+From CheriCaps.Morello Require Import CapFns.
+From CheriCaps.Morello Require Export Capabilities.
 
 Module test_cap_getters_and_setters.
 
@@ -112,6 +112,10 @@ Module test_cap_getters_and_setters.
     let perms := perm_clear_global (cap_get_perms c1) in 
     perms = cap_get_perms c9 /\ perms ≠ cap_get_perms c1.
     Proof. vm_compute. split. bv_solve. discriminate. Qed.    
+
+  Example permissions_test_7 : 
+    Permissions.of_Z (Permissions.to_Z perm_Load_Store) = perm_Load_Store.
+    Proof. reflexivity. Qed.
 
   Example get_and_user_perms_test_1 : 
     let user_perms_A : (list bool) := get_user_perms (cap_get_perms (cap_cU ())) in 

@@ -375,7 +375,9 @@ Module Permissions <: PERMISSIONS.
   Definition to_string_hex (perms:t) : string :=      
     HexString.of_Z (bv_to_Z_unsigned perms). 
 
-  Definition to_raw (perms:t) : Z := bv_to_Z_unsigned perms.
+  Definition to_raw (perms:t) : Z := to_Z perms.
+  
+  Definition of_raw (z:Z) : t := of_Z z.
 
   Definition of_list (l : list bool) : option t := 
     if ((List.length l) <? (N.to_nat len))%nat then
@@ -1002,9 +1004,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Definition encode (c : t) : option ((list ascii) * bool) :=
     let tag : bool := cap_is_valid c in 
     let c : (mword (Z.of_N len)) := c in  
-    let c : (mword (Z.of_N len)) := c in
     let cap_bits := bits_of c in 
-    let w : (mword _) := vec_of_bits (List.tail cap_bits) in
+    let w := vec_of_bits (List.tail cap_bits) in
     match mem_bytes_of_bits w with
     | Some bytes =>
         match try_map memory_byte_to_ascii bytes with
@@ -1019,7 +1020,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       let bytes := List.rev bytes in (* TODO: bypassing rev could make this more efficient *)
       let bits : (list bool) := tag::(bool_bits_of_bytes bytes) in
       let bitsu := List.map bitU_of_bool bits in
-      let w : (mword _) := vec_of_bits bitsu in
+      let w := vec_of_bits bitsu in
       (* Some (mword_to_bv w) *) (* This requires the proof below, but makes tests harder *)
       let z : Z := uint w in 
       let c : option t := Z_to_bv_checked len z in 
