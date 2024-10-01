@@ -84,8 +84,9 @@ Proof.
   + intro H. rewrite H. done.
 Qed.
 
+(* Permissions bits are represented in the same order of significance as in the full capability (eg, 1%bv encodes the Global permission) *)
 Module Permissions <: PERMISSIONS.
-  Definition len:N := 18. (* CAP_PERMS_NUM_BITS = 16 bits of actual perms + 2 bits for Executive and Global *)
+  Definition len:N := 18. (* CAP_PERMS_NUM_BITS = 16 bits of actual perms + 2 bits for Executive and Global. *)
   Definition t := bv len.
     
   Definition to_Z (perms:t) : Z := bv_to_Z_unsigned perms.
@@ -95,6 +96,13 @@ Module Permissions <: PERMISSIONS.
   Program Definition of_list_bool (l:list bool) `{(N.of_nat (List.length l) = len)%N} : t := 
     MachineWord.N_to_word (List.length l) (Ascii.N_of_digits l).
   Next Obligation. auto. Defined.
+
+  Program Definition of_list (l : list bool) : option t := 
+    match (Nat.eq_dec (List.length l) (N.to_nat len)) with 
+    | left eq => Some (@of_list_bool l _)
+    | right _ => None 
+    end.    
+  Next Obligation. intros. rewrite eq. done. Defined. 
   
   Definition user_perms_len:nat := 4.
 
@@ -379,11 +387,6 @@ Module Permissions <: PERMISSIONS.
   
   Definition of_raw (z:Z) : t := of_Z z.
 
-  Definition of_list (l : list bool) : option t := 
-    if ((List.length l) <? (N.to_nat len))%nat then
-      None 
-    else
-      Some (@mword_to_bv (Z.of_N len) (of_bools (List.rev (List.firstn (N.to_nat len) l)))).
   
   Definition to_list (perms:t) : list bool := 
     bv_to_list_bool perms.
