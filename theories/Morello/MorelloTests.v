@@ -73,50 +73,63 @@ Module test_cap_getters_and_setters.
     Proof. vm_compute. bv_solve. Qed.
 
   Example permissions_test_3 : 
-    let mask : Permissions.t := perm_Load_Store in
+    let mask : t := inv perm_Load_Store in
     perm_Load_Store = cap_get_perms (cap_narrow_perms c1 mask).
     Proof. vm_compute. bv_solve. Qed.
 
   Example permissions_test_4 : 
-    let mask : Permissions.t := perm_Load_Store in
+    let mask : t := inv perm_Load_Store in
     let cap := cap_narrow_perms c1 mask in 
-    let mask : Permissions.t := perm_Load_Execute in
+    let mask : t := inv perm_Load_Execute in
     perm_Load = cap_get_perms (cap_narrow_perms cap mask).
     Proof. vm_compute. bv_solve. Qed.
 
   Example permissions_test_5 : 
-    let mask : Permissions.t := make_permissions [Load_perm; Execute_perm] in  
-    let capA := (cap_narrow_perms c1 mask) in     
-    let perms : Permissions.t := Permissions.perm_Universal in 
-    let perms := perm_clear_store_cap perms in 
-    let perms := perm_clear_store perms in 
-    let perms := perm_clear_global perms in 
-    let perms := perm_clear_executive perms in 
-    let perms := perm_clear_seal perms in 
-    let perms := perm_clear_load_cap perms in 
-    let perms := perm_clear_store_local_cap perms in 
-    let perms := perm_clear_system_access perms in 
-    let perms := perm_clear_unseal perms in 
-    let perms := perm_clear_branch_sealed_pair perms in 
-    let perms := perm_clear_mutable_load perms in 
-    let perms := perm_clear_compartment_ID perms in 
-    let perms := perm_clear_user4 perms in 
-    let perms := perm_clear_user3 perms in 
-    let perms := perm_clear_user2 perms in 
-    let perms := perm_clear_user1 perms in 
-    let capB := (cap_narrow_perms c1 perms) in
-    capA = capB.
-    Proof. vm_compute. reflexivity. Qed.
-
+    let mask1 : t := make_permissions [Load_perm; LoadCap_perm; Execute_perm; MutableLoad_perm; User1_perm; User2_perm; Seal_perm; CompartmentID_perm; Executive_perm] in  
+    let mask2 : t := make_permissions [Store_perm; StoreCap_perm; StoreLocalCap_perm; System_perm; User3_perm; User4_perm; Unseal_perm; BranchSealedPair_perm; Global_perm] in 
+    mask1 = inv mask2.
+    Proof. vm_compute. bv_solve. Qed.
+      
   Example permissions_test_6 : 
-    let perms := perm_clear_global (cap_get_perms c1) in 
-    perms = cap_get_perms c9 /\ perms ≠ cap_get_perms c1.
+    let perms := cap_get_perms (cap_narrow_perms c1 (make_permissions [Global_perm])) in 
+    perms = cap_get_perms c9 ∧ perms ≠ cap_get_perms c1.
     Proof. vm_compute. split. bv_solve. discriminate. Qed.    
 
   Example permissions_test_7 : 
     Permissions.of_Z (Permissions.to_Z perm_Load_Store) = perm_Load_Store.
     Proof. reflexivity. Qed.
 
+  Example permissions_test_8 : 
+    let cheri_perms_and (c:Capability.t) (mask:bv 64) : Capability.t := 
+      let tag : bv 1 := bv_extract 128 1 c in
+      let perms : bv 18 := bv_extract 110 18 c in 
+      let rem : bv 110 := bv_extract 0 110 c in
+      bv_concat 129 (bv_concat 19 tag (bv_and perms (bv_extract 0 18 mask))) rem in 
+    let store_perms : bv 18 := make_permissions [Store_perm; StoreCap_perm; StoreLocalCap_perm] in 
+    let store_mask : bv 64 := bv_not (bv_zero_extend 64 store_perms) in
+    bv_to_Z_unsigned store_mask = 0xfffffffffffecfff ∧ 
+    store_perms = bv_not (bv_extract 0 18 (Z_to_bv 64 0xfffffffffffecfff)) ∧ 
+    Capability.cap_narrow_perms c1 store_perms = cheri_perms_and c1 store_mask.
+    Proof. vm_compute. repeat split; bv_solve. Qed.
+
+  Example permissions_test_9 : 
+    let store_and_mask : list bool := [true; true; true; true; true; true; true; true; true; true; true; true; false; false; true; true; false; true; true; true; true; true; 
+    true; true; true; true; true; true; true; true; true; true; true;
+    true; true; true; true; true; true; true; true; true; true; true;
+    true; true; true; true; true; true; true; true; true; true; true;
+    true; true; true; true; true; true; true; true; true] in
+    let store_perms := list.take 18 store_and_mask in 
+    let store_perms := List.map negb store_perms in     
+    match (Permissions.of_list store_perms) with 
+    | Some perms => 
+        let new_cap := Capability.cap_narrow_perms c1 perms in 
+        Capability.cap_permits_store c1 = true ∧ Capability.cap_permits_store_cap c1 = true ∧ Capability.cap_permits_store_local_cap c1 = true ∧ 
+        Capability.cap_permits_store new_cap = false ∧ Capability.cap_permits_store_cap new_cap = false ∧ Capability.cap_permits_store_local_cap new_cap = false ∧ 
+        Permissions.to_string (Capability.cap_get_perms new_cap) = "rxRE"
+    | None => False
+    end.
+  Proof. vm_compute. tauto. Qed.
+    
   Example get_and_user_perms_test_1 : 
     let user_perms_A : (list bool) := get_user_perms (cap_get_perms (cap_cU ())) in 
     let user_perms_A := [ nth 0 user_perms_A false; negb (nth 1 user_perms_A false);
@@ -128,7 +141,7 @@ Module test_cap_getters_and_setters.
     Proof. vm_compute. split. reflexivity. reflexivity. Qed. 
  
   Example eqb_and_narrow_perm_test_1 :
-    let mask : Permissions.t := perm_Load_Store in
+    let mask : Permissions.t := inv perm_Load_Store in
     (c2 = (cap_narrow_perms c1 mask))%stdpp.
     Proof. vm_compute. reflexivity. Qed.
 
@@ -150,12 +163,9 @@ Module test_cap_getters_and_setters.
     (* We can see new_bounds can be represented exactly from cap5: https://www.morello-project.org/capinfo?c=0x1%3Afb00000034473337%3A1011111111113333 *)
     let new_cap := cap_narrow_bounds_exact c5 (new_base,new_limit) in 
     let result := cap_get_bounds new_cap in 
-    (* isExpValid = true /\ (base_set =? new_base) = true /\  *)
-    (* (limit_set =? new_limit) = true *) 
-    (cap_is_valid c5) = true /\ (cap_is_valid new_cap) = true
-    /\ cap_get_bounds_ new_cap = (new_base,new_limit,true).
-    Proof. vm_compute. split. reflexivity. split. reflexivity. (* split. reflexivity. 
-      split. reflexivity. *) reflexivity. Qed. 
+    (cap_is_valid c5) = true ∧ (cap_is_valid new_cap) = true
+    ∧ cap_get_bounds_ new_cap = (new_base,new_limit,true).
+    Proof. vm_compute. split. reflexivity. split. reflexivity. reflexivity. Qed. 
   
   Example seal_and_unseal_test_1 :
     (* c6 has Seal and Unseal permissions and its value is <= the largest objtype. *) 
