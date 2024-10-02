@@ -112,6 +112,24 @@ Module test_cap_getters_and_setters.
     Capability.cap_narrow_perms c1 store_perms = cheri_perms_and c1 store_mask.
     Proof. vm_compute. repeat split; bv_solve. Qed.
 
+  Example permissions_test_9 : 
+    let store_and_mask : list bool := [true; true; true; true; true; true; true; true; true; true; true; true; false; false; true; true; false; true; true; true; true; true; 
+    true; true; true; true; true; true; true; true; true; true; true;
+    true; true; true; true; true; true; true; true; true; true; true;
+    true; true; true; true; true; true; true; true; true; true; true;
+    true; true; true; true; true; true; true; true; true] in
+    let store_perms := list.take 18 store_and_mask in 
+    let store_perms := List.map negb store_perms in     
+    match (Permissions.of_list store_perms) with 
+    | Some perms => 
+        let new_cap := Capability.cap_narrow_perms c1 perms in 
+        Capability.cap_permits_store c1 = true ∧ Capability.cap_permits_store_cap c1 = true ∧ Capability.cap_permits_store_local_cap c1 = true ∧ 
+        Capability.cap_permits_store new_cap = false ∧ Capability.cap_permits_store_cap new_cap = false ∧ Capability.cap_permits_store_local_cap new_cap = false ∧ 
+        Permissions.to_string (Capability.cap_get_perms new_cap) = "rxRE"
+    | None => False
+    end.
+  Proof. vm_compute. tauto. Qed.
+    
   Example get_and_user_perms_test_1 : 
     let user_perms_A : (list bool) := get_user_perms (cap_get_perms (cap_cU ())) in 
     let user_perms_A := [ nth 0 user_perms_A false; negb (nth 1 user_perms_A false);
