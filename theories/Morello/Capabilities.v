@@ -104,6 +104,9 @@ Module Permissions <: PERMISSIONS.
     end.    
   Next Obligation. intros. rewrite eq. done. Defined. 
   
+  (* Computes all permissions that are not in p. *)
+  Definition inv (p : t) := bv_not p.
+
   Definition user_perms_len:nat := 4.
 
   Variant perm := Load_perm | Store_perm | Execute_perm | LoadCap_perm | StoreCap_perm | StoreLocalCap_perm | Seal_perm | Unseal_perm
@@ -114,44 +117,25 @@ Module Permissions <: PERMISSIONS.
     let perms : (mword 64) := zero_extend permissions 64 in 
     fun perm => CapPermsInclude perms perm.
 
-  Definition has_global_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_GLOBAL.
-  Definition has_executive_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_EXECUTIVE.
-  Definition has_execute_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_EXECUTE.
-  Definition has_load_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_LOAD.
-  Definition has_load_cap_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_LOAD_CAP.
-  Definition has_seal_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_SEAL.
-  Definition has_store_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_STORE.
-  Definition has_store_cap_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_STORE_CAP.
-  Definition has_store_local_cap_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_STORE_LOCAL.
-  Definition has_system_access_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_SYSTEM.
-  Definition has_unseal_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_UNSEAL.
-  Definition has_user1_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_USER1.
-  Definition has_user2_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_USER2.
-  Definition has_user3_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_USER3.
-  Definition has_user4_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_USER4.
-  Definition has_compartmentID_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_COMPARTMENT_ID.
-  Definition has_branch_sealed_pair_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_BRANCH_SEALED_PAIR.
-  Definition has_ccall_perm (permissions:t) : bool := 
-    has_branch_sealed_pair_perm permissions.
-  Definition has_mutable_load_perm (permissions:t) : bool := 
-    has_perm permissions CAP_PERM_MUTABLE_LOAD.
+  Definition has_global_perm (permissions:t) : bool := has_perm permissions CAP_PERM_GLOBAL.
+  Definition has_executive_perm (permissions:t) : bool := has_perm permissions CAP_PERM_EXECUTIVE.
+  Definition has_execute_perm (permissions:t) : bool := has_perm permissions CAP_PERM_EXECUTE.
+  Definition has_load_perm (permissions:t) : bool := has_perm permissions CAP_PERM_LOAD.
+  Definition has_load_cap_perm (permissions:t) : bool := has_perm permissions CAP_PERM_LOAD_CAP.
+  Definition has_seal_perm (permissions:t) : bool := has_perm permissions CAP_PERM_SEAL.
+  Definition has_store_perm (permissions:t) : bool := has_perm permissions CAP_PERM_STORE.
+  Definition has_store_cap_perm (permissions:t) : bool := has_perm permissions CAP_PERM_STORE_CAP.
+  Definition has_store_local_cap_perm (permissions:t) : bool := has_perm permissions CAP_PERM_STORE_LOCAL.
+  Definition has_system_access_perm (permissions:t) : bool := has_perm permissions CAP_PERM_SYSTEM.
+  Definition has_unseal_perm (permissions:t) : bool := has_perm permissions CAP_PERM_UNSEAL.
+  Definition has_user1_perm (permissions:t) : bool := has_perm permissions CAP_PERM_USER1.
+  Definition has_user2_perm (permissions:t) : bool := has_perm permissions CAP_PERM_USER2.
+  Definition has_user3_perm (permissions:t) : bool := has_perm permissions CAP_PERM_USER3.
+  Definition has_user4_perm (permissions:t) : bool := has_perm permissions CAP_PERM_USER4.
+  Definition has_compartmentID_perm (permissions:t) : bool := has_perm permissions CAP_PERM_COMPARTMENT_ID.
+  Definition has_branch_sealed_pair_perm (permissions:t) : bool := has_perm permissions CAP_PERM_BRANCH_SEALED_PAIR.
+  Definition has_ccall_perm (permissions:t) : bool := has_branch_sealed_pair_perm permissions.
+  Definition has_mutable_load_perm (permissions:t) : bool := has_perm permissions CAP_PERM_MUTABLE_LOAD.
           
   Definition get_user_perms (permissions:t) : list bool := 
     [ has_user1_perm permissions; has_user2_perm permissions; 
@@ -226,8 +210,7 @@ Module Permissions <: PERMISSIONS.
     has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms; has_load_perm perms ] _.
    Next Obligation. reflexivity. Defined.
       
-  Program Definition perm_p0 : t := 
-    @of_list_bool (list_perm_to_list_bool []) _.
+  Program Definition perm_p0 : t := @of_list_bool (list_perm_to_list_bool []) _.
    Next Obligation. reflexivity. Defined.
 
   Definition perm_Universal : t := 
@@ -242,135 +225,6 @@ Module Permissions <: PERMISSIONS.
   Definition perm_alloc_fun : t := 
     (make_permissions [ Load_perm; Execute_perm; LoadCap_perm ]).
     
-  Program Definition perm_clear_global (perms:t) : t :=
-    @of_list_bool [ false; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_clear_executive (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; false; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms;
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-    
-  Program Definition perm_clear_execute (perms:t) : t :=
-   @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-   has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-   has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; false; has_store_perm perms;
-   has_load_perm perms ] _.
-   Next Obligation. reflexivity. Defined.
- 
-  Program Definition perm_clear_load (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    false ] _.
-    Next Obligation. reflexivity. Defined.
-  
-  Program Definition perm_clear_load_cap (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; false; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-  
-  Program Definition perm_clear_seal (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    false; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-  
-  Program Definition perm_clear_store (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; false;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.  
-
-  Program Definition perm_clear_store_cap (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; false; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_clear_store_local_cap (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; false; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_clear_system_access (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; false; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_clear_unseal (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; false;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_clear_branch_sealed_pair (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; false; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.
-
-  Program Definition perm_clear_ccall (perms:t) : t := 
-    perm_clear_branch_sealed_pair perms.  
-
-  Program Definition perm_clear_mutable_load (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    false; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.  
-
-  Program Definition perm_clear_compartment_ID (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms; 
-    has_mutable_load_perm perms; false; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.  
-
-  Program Definition perm_clear_user1 (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; false; has_user2_perm perms; has_user3_perm perms; has_user4_perm perms;  
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.    
-
-  Program Definition perm_clear_user2 (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; false; has_user3_perm perms; has_user4_perm perms;
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.  
-
-  Program Definition perm_clear_user3 (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; false; has_user4_perm perms; 
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.  
-
-  Program Definition perm_clear_user4 (perms:t) : t :=
-    @of_list_bool [ has_global_perm perms; has_executive_perm perms; has_user1_perm perms; has_user2_perm perms; has_user3_perm perms; false;
-    has_mutable_load_perm perms; has_compartmentID_perm perms; has_branch_sealed_pair_perm perms; has_system_access_perm perms; has_unseal_perm perms;
-    has_seal_perm perms; has_store_local_cap_perm perms; has_store_cap_perm perms; has_load_cap_perm perms; has_execute_perm perms; has_store_perm perms;
-    has_load_perm perms ] _.
-    Next Obligation. reflexivity. Defined.  
-  
   Definition to_string (perms:t) : string :=
       let s (f:bool) l := if f then l else "" in
       s (has_load_perm perms) "r"
@@ -386,7 +240,6 @@ Module Permissions <: PERMISSIONS.
   Definition to_raw (perms:t) : Z := to_Z perms.
   
   Definition of_raw (z:Z) : t := of_Z z.
-
   
   Definition to_list (perms:t) : list bool := 
     bv_to_list_bool perms.
@@ -752,16 +605,15 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let ot : (mword (Z.of_N ObjType.len)) := ot in 
     CapSetObjectType c (zero_extend ot 64).
 
-  (* [perms] must contain [1] for permissions to be kept and [0] for those to be cleared *)
+  (* [perms] must contain [1] for the permissions to be cleared and [0] for those to be kept  *)
   Definition cap_narrow_perms (c:t) (perms:Permissions.t) : t :=
     let perms_mw : (mword (Z.of_N Permissions.len)) := perms in 
     let mask : (mword 64) := zero_extend perms_mw 64 in
-    let mask_inv : (mword 64) := invert_bits mask in 
-    let new_cap := CapClearPerms c mask_inv in 
+    let new_cap := CapClearPerms c mask in 
     if (cap_is_sealed c) then (cap_invalidate new_cap) else new_cap.
 
   Definition cap_clear_global_perm (cap:t) : t :=     
-    cap_narrow_perms cap (Permissions.perm_clear_global (cap_get_perms cap)).
+    cap_narrow_perms cap (Permissions.make_permissions [Permissions.Global_perm]).
     
   Definition cap_set_bounds (c : t) (bounds : Bounds.t) (exact : bool) : t :=
     (* CapSetBounds sets the lower bound to the value of the input cap,
@@ -915,9 +767,10 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let result:Z := Z.land (Z.add len nmask) mask in 
       result.
 
-  Definition make_cap (value : AddressValue.t) (otype : ObjType.t) (bounds : Bounds.t) (perms_to_keep : Permissions.t) : t :=
+  Definition make_cap (value : AddressValue.t) (otype : ObjType.t) (bounds : Bounds.t) (perms : Permissions.t) : t :=
     let new_cap := cap_cU () in 
-    let new_cap := cap_narrow_perms new_cap perms_to_keep in 
+    let perms_to_clear := Permissions.inv perms in 
+    let new_cap := cap_narrow_perms new_cap perms_to_clear in 
     let new_cap := cap_narrow_bounds new_cap bounds in 
     let new_cap := cap_set_value new_cap value in 
       cap_set_objtype new_cap otype.

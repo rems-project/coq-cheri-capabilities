@@ -43,19 +43,6 @@ Module Type PERMISSIONS.
   (* User-defined permissions *)
   Parameter get_user_perms: t -> list bool.
 
-  (* Clearing permissions *)
-  Parameter perm_clear_global: t -> t.
-  Parameter perm_clear_execute: t -> t.
-  Parameter perm_clear_ccall: t -> t.
-  Parameter perm_clear_load: t -> t.
-  Parameter perm_clear_load_cap: t -> t.
-  Parameter perm_clear_seal: t -> t.
-  Parameter perm_clear_store: t -> t.
-  Parameter perm_clear_store_cap: t -> t.
-  Parameter perm_clear_store_local_cap: t -> t.
-  Parameter perm_clear_system_access: t -> t.
-  Parameter perm_clear_unseal: t -> t. 
-  
   (** perform bitwise AND of user permissions *)
   Parameter perm_and_user_perms: t -> list bool -> t.
 
@@ -219,7 +206,7 @@ Module Type CAPABILITY
       The input permissions should be the ones to be kept.
         Related instructions:
         - CAndPerm in RISC V
-        - In Morello, CLRPERM c mask = cap_narrow_perms c ~mask
+        - CLRPERM in Morello 
    *)
   Parameter cap_narrow_perms: t -> P.t -> t.
 

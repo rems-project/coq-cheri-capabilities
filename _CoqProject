@@ -1,8 +1,7 @@
-# To use _CoqProject with VS Code + VsCoq extension, from the root directory of this file run
-## coq_makefile -f _CoqProject -o CoqMakefile
-## make -f CoqMakefile
-# and then code .
+# This file is used by Coq IDEs (eg, VS Code with the VsCoq extension) 
 
 -R theories CheriCaps
 
-theories
+# theories
+
+-Q _build/default/theories CheriCaps
