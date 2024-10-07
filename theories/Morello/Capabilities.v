@@ -873,7 +873,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 
   Definition decode (bytes : list ascii) (tag : bool) : option t :=
     if bool_decide (List.length bytes = 16%nat) then
-      let bytes := List.rev bytes in (* TODO: bypassing rev could make this more efficient *)
+      let bytes := List.rev bytes in 
       let bits : (list bool) := tag::(bool_bits_of_bytes bytes) in
       let bitsu := List.map bitU_of_bool bits in
       let w := vec_of_bits bitsu in
@@ -1296,13 +1296,18 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     rewrite Hdiv. rewrite Nat.div_mul; lia.    
   Qed.
 
+  Lemma mword_to_bools_len {n} (w : mword n) :
+    length (mword_to_bools w) = Z.to_nat n.
+  Proof. 
+    unfold mword_to_bools. 
+    by rewrite MachineWord.word_to_bools_length. 
+  Qed.
+
   Lemma bits_of_len {n} (w : mword n) :
     length (bits_of w) = Z.to_nat n.
   Proof.
     unfold bits_of. rewrite map_length.
-    unfold mword_to_bools. 
-    rewrite MachineWord.word_to_bools_length. 
-    reflexivity.
+    by rewrite mword_to_bools_len.
   Qed.
   
   Lemma cap_encode_length:
@@ -1382,11 +1387,103 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       { intro H. apply cap_is_valid_bv_extract in H. rewrite E in H. contradiction. }
       symmetry. apply Z.eqb_neq. by apply bv_neq.
   Qed.      
+
+  Lemma bool_to_bit_to_bool b : 
+    bool_of_bit (bitU_of_bool b) = b.
+  Proof. 
+    unfold bitU_of_bool, bool_of_bit.
+    repeat case_match; try done.
+  Qed.
   
-  Lemma mword_to_bits_to_mword {n} (c : mword (n)) : 
+  Lemma bv_to_bits_to_Z {n} (c : bv n) : 
+    (n>0)%N → 
+    Z.of_N (N_of_digits (bv_to_bits c)) = bv_unsigned c.
+  Proof.
+    intro H_n_min.
+    assert (H: length (bv_to_bits c) = N.to_nat n); [ by rewrite bv_to_bits_length|]. 
+    assert (G: (N_of_digits (bv_to_bits c) < 2 ^ (N.of_nat (N.to_nat n)))%N).
+    { rewrite <- (bv_to_bits_length (c)). apply MachineWord.N_of_digits_limit. }
+    bitblast as m.
+    - set (i:=Z.to_N m).    
+      have ->: m = Z.of_N i; [ lia |].
+      rewrite Z.testbit_of_N.
+      apply eq_bool_prop_intro. 
+      destruct (i <? n)%N eqn:Hbound.
+      + apply N.ltb_lt in Hbound.
+        set (i' := N.to_nat i).
+        assert (Q: i = N.of_nat i'); [ lia |]. 
+        assert (R: (i' < N.to_nat n)%nat); [ lia |]. 
+        split.
+        * intro P. rewrite Q in P.
+          apply Is_true_eq_true in P.
+          specialize (conj P R) as H'.
+          rewrite <- H in H'.        
+          apply MachineWord.MachineWord.nth_error_N_of_digits in H'.
+          rewrite <- MachineWord.nth_error_lookup in H'.
+          apply bv_to_bits_lookup_Some in H'.
+          destruct H' as [H1 H2]. unfold i' in H2. rewrite N_nat_Z in H2. 
+          by rewrite <- H2.
+        * intro P. rewrite Q in P. rewrite nat_N_Z in P.
+          apply Is_true_eq_true in P; symmetry in P.
+          specialize (conj R P) as H'.
+          apply bv_to_bits_lookup_Some in H'.
+          rewrite MachineWord.nth_error_lookup in H'.
+          apply MachineWord.MachineWord.nth_error_N_of_digits in H'.
+          destruct H' as [H1 H2]. unfold i' in H1. rewrite N2Nat.id in H1.
+          by rewrite H1.
+      + apply N.ltb_ge in Hbound. rewrite bv_unsigned_spec_high; [ lia |].
+        rewrite N.bits_above_log2; try done. 
+        assert ((N_of_digits (bv_to_bits c) < 2 ^ (N.of_nat (length (bv_to_bits c))))%N); [ apply MachineWord.N_of_digits_limit | lia ]. 
+    - assert (m >= Z.of_N n)%Z; [ lia |]. 
+      apply Z.bits_above_log2; try lia.
+      assert (H': N_of_digits (bv_to_bits c) = 0%N ∨ (N_of_digits (bv_to_bits c) > 0)%N); [ lia |].
+      destruct H' as [H' | H'].
+      + rewrite H'. simpl. lia.
+      + apply Z.log2_lt_pow2; try lia. 
+        assert (H'': (N_of_digits (bv_to_bits c) < 2 ^ Z.to_N m)%N). 
+        { assert (2 ^ n <= 2 ^ Z.to_N m)%N; 
+          [ apply N.pow_le_mono_r; try lia | lia ]. } 
+        apply N2Z.inj_lt in H''.
+        replace (Z.of_N (2 ^ Z.to_N m)) with (2 ^ m)%Z in H''.
+        { lia. } { rewrite N2Z.inj_pow. simpl. rewrite Z2N.id; lia. }
+  Qed.
+
+  Lemma mword_of_bits_to_mword_of_bools {n} (c : mword n) : 
+    (n >= 0)%Z → 
+    vec_of_bits (bits_of c) = of_bools (mword_to_bools c).
+  Proof.
+    intro Hbound.
+    unfold bits_of, vec_of_bits.
+    rewrite -> map_map.
+    set (f := (λ x : bool, bool_of_bit (bitU_of_bool x))).
+    set (g := λ x : bool, x).
+    rewrite (map_ext f g); [ apply bool_to_bit_to_bool |].  
+    by rewrite map_id.
+  Qed.
+
+  Lemma mword128_to_bits_to_mword (c : mword 128) : 
     vec_of_bits (bits_of c) = autocast c.
   Proof.
-  Admitted.
+    rewrite mword_of_bits_to_mword_of_bools; try lia.
+    unfold mword_to_bools, of_bools. simpl. 
+    unfold bools_to_mword, MachineWord.word_to_bools, MachineWord.bools_to_word.
+    rewrite rev_involutive /MachineWord.N_to_word /to_word_nat.
+    rewrite cast_nat_refl /to_word; simpl.
+    rewrite bv_to_bits_to_Z; try lia. rewrite Z_to_bv_bv_unsigned. 
+    by rewrite autocast_refl.
+  Qed. 
+
+  Lemma mword129_to_bits_to_mword (c : mword 129) : 
+    vec_of_bits (bits_of c) = autocast c.
+  Proof.
+    rewrite mword_of_bits_to_mword_of_bools; try lia.
+    unfold mword_to_bools, of_bools. simpl. 
+    unfold bools_to_mword, MachineWord.word_to_bools, MachineWord.bools_to_word.
+    rewrite rev_involutive /MachineWord.N_to_word /to_word_nat.
+    rewrite cast_nat_refl /to_word; simpl.
+    rewrite bv_to_bits_to_Z; try lia. rewrite Z_to_bv_bv_unsigned. 
+    by rewrite autocast_refl.
+  Qed.
 
   Lemma bytes_to_bits_to_bytes l l' l'' : 
     byte_chunks l = Some l' → 
@@ -1441,19 +1538,15 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     inversion E1; clear E1; subst.
     apply (bytes_to_bits_to_bytes _ l0 bytes) in E3; try assumption.
     unfold t, len in *. 
-    change (Z.of_N 129) with 129%Z in *. Set Printing Implicit.
-    replace (list.tail (@bits_of 129 c)) with (@bits_of 128 (bv_extract 0 128 c)) in E3. 2:{ unfold bits_of. rewrite mword_to_bools_cons_last. simpl. reflexivity. }
-    rewrite mword_to_bits_to_mword in E3. 
+    change (Z.of_N 129) with 129%Z in *. 
+    replace (list.tail (@bits_of 129 c)) with (@bits_of 128 (bv_extract 0 128 c)) in E3;
+    [| unfold bits_of; rewrite mword_to_bools_cons_last; reflexivity ]. 
+    rewrite mword128_to_bits_to_mword in E3; try lia. 
     
     unfold decode. rewrite E_len; simpl. rewrite E3.
     unfold uint, MachineWord.word_to_N, len; rewrite Z2N.id; [ apply bv_unsigned_in_range |];
-    simpl. Set Printing Implicit. set (vec := vec_of_bits
-    (bitU_of_bool (cap_is_valid c)
-     :: @bits_of (@length_list bitU (@bits_of 128 (@bv_extract 129 0 128 c)))
-          (@autocast mword 128
-             (@length_list bitU (@bits_of 128 (@bv_extract 129 0 128 c)))
-             (@dummy_mword (@length_list bitU (@bits_of 128 (@bv_extract 129 0 128 c))))
-             (@bv_extract 129 0 128 c)))).
+    simpl. 
+    set (vec := vec_of_bits (bitU_of_bool (cap_is_valid c) :: @bits_of (@length_list bitU (@bits_of 128 (@bv_extract 129 0 128 c))) (@autocast mword 128 (@length_list bitU (@bits_of 128 (@bv_extract 129 0 128 c))) (@dummy_mword (@length_list bitU (@bits_of 128 (@bv_extract 129 0 128 c)))) (@bv_extract 129 0 128 c)))).
     
     have -> : bv_unsigned vec = bv_unsigned (@bv_to_bv _ 129 vec).
     { unfold bv_to_bv, bv_to_Z_unsigned. by rewrite Z_to_bv_bv_unsigned. }
@@ -1470,8 +1563,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         | have -> : bv_unsigned (vec_of_bits (map bitU_of_bool ((@bv_extract 129 128 1 c =? 1) :: @mword_to_bools 128 (@bv_extract 129 0 128 c)))) = bv_unsigned (vec_of_bits (map bitU_of_bool (@mword_to_bools 129 c)));
           [ change (N.of_nat (Pos.to_nat (Pos.of_succ_nat _ ))) with 129%N;
             apply f_equal; unfold vec_of_bits; apply f_equal; by rewrite <- mword_to_bools_cons_last
-          | fold (@bits_of 129 c); rewrite mword_to_bits_to_mword; by rewrite Z_to_bv_bv_unsigned ] 
-        ].
+          | rewrite mword129_to_bits_to_mword; try lia; rewrite Z_to_bv_bv_unsigned; by rewrite autocast_refl ]]. 
     } 
   Qed.
   
