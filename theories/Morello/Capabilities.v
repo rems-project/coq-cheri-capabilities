@@ -24,7 +24,7 @@ Definition ltb {n} (v1 v2 : bv n) : bool :=
 Definition leb {n} (v1 v2 : bv n) : bool := 
   ltb v1 v2 || eqb v1 v2.
 Definition gtb {n} (v1 v2 : bv n) : bool := 
-  leb v2 v1.
+  ltb v2 v1.
 Definition geb {n} (v1 v2 : bv n) : bool := 
   gtb v1 v2 || eqb v1 v2.
 

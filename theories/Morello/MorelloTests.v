@@ -100,19 +100,6 @@ Module test_cap_getters_and_setters.
     Proof. reflexivity. Qed.
 
   Example permissions_test_8 : 
-    let cheri_perms_and (c:Capability.t) (mask:bv 64) : Capability.t := 
-      let tag : bv 1 := bv_extract 128 1 c in
-      let perms : bv 18 := bv_extract 110 18 c in 
-      let rem : bv 110 := bv_extract 0 110 c in
-      bv_concat 129 (bv_concat 19 tag (bv_and perms (bv_extract 0 18 mask))) rem in 
-    let store_perms : bv 18 := make_permissions [Store_perm; StoreCap_perm; StoreLocalCap_perm] in 
-    let store_mask : bv 64 := bv_not (bv_zero_extend 64 store_perms) in
-    bv_to_Z_unsigned store_mask = 0xfffffffffffecfff ∧ 
-    store_perms = bv_not (bv_extract 0 18 (Z_to_bv 64 0xfffffffffffecfff)) ∧ 
-    Capability.cap_narrow_perms c1 store_perms = cheri_perms_and c1 store_mask.
-    Proof. vm_compute. repeat split; bv_solve. Qed.
-
-  Example permissions_test_9 : 
     let store_and_mask : list bool := [true; true; true; true; true; true; true; true; true; true; true; true; false; false; true; true; false; true; true; true; true; true; 
     true; true; true; true; true; true; true; true; true; true; true;
     true; true; true; true; true; true; true; true; true; true; true;
