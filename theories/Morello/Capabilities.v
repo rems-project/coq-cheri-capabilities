@@ -825,15 +825,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     let c0 := cap_c0 () in
     let c' := cap_set_value c0 a in
     c =? c'.
-    
-  Definition bool_bits_of_bytes (bytes : list ascii): list bool
-  :=
-  let ascii_to_bits (x:ascii) :=
-    match x with
-    | Ascii a0 a1 a2 a3 a4 a5 a6 a7 => [a7; a6; a5; a4; a3; a2; a1; a0]
-    end
-  in
-  List.fold_left (fun l a => List.app l (ascii_to_bits a)) bytes [].  
 
   (* Internal helper function to convert between Sail bytes ([memory_byte])
      and [ascii]. *)
@@ -1270,7 +1261,57 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       reflexivity.
   Qed.
 
-  (* Consider migrating these functions to the libraries where the functions they reason about are defined *)
+  Lemma try_map_to_map {A B:Type} (f : A -> option B) (l : list A) (l' : list B) : 
+    try_map f l = Some l' ↔  
+    map f l = map Some l'.
+  Proof. 
+    revert l l'. 
+    assert (H: ∀ n l l', length l = n → try_map f l = Some l' ↔ map f l = map Some l').
+    { induction n as [| m IH].
+      + intros l l' H_len. apply nil_length_inv in H_len. 
+        subst. simpl. split; intro H. 
+        - inversion H. subst. reflexivity.
+        - symmetry in H. apply map_eq_nil in H. subst. reflexivity. 
+      + intros l l' H_len. destruct l as [| h t ] eqn:H_l; [ done |].
+        split; intro H; rewrite cons_length in H_len; apply eq_add_S in H_len.
+        - simpl in H. case_match eqn:H_h; try done. case_match eqn:H_t; try done.
+          match goal with 
+          | _: try_map _ ?t = Some ?l
+            |- _ 
+              => apply (IH t l H_len) in H_t
+          end.    
+          simpl. inversion H as [H']. 
+          rewrite H_h H_t. reflexivity.
+        - simpl. simpl in H. 
+          assert (H_len': length l' = S m). 
+          { rewrite <- (map_length f) in H_len. rewrite <- H_len. 
+            rewrite <- (cons_length (f h)). rewrite H. by rewrite map_length. }          
+          destruct l' as [|h' t'] eqn:H_l'; [ done |].   
+          case_match eqn:H_h; try done. case_match eqn:H_t. 
+          * apply f_equal. subst. 
+            apply (IH t) in H_t; try done. rewrite H_t in H. rewrite <- map_cons in H.
+            by simplify_list_eq. 
+          * subst. simpl in H. 
+            apply (app_inj_2 [Some b] [Some h']) in H;
+            [| rewrite !map_length; rewrite cons_length in H_len'; lia ].  
+            destruct H as [_ H].
+            apply (IH t) in H; [| reflexivity ]. rewrite H in H_t. done.  
+    } 
+    intros l l'. by apply (H (length l) l l').
+  Qed.
+
+  Lemma try_map_app {A B:Type} (f : A -> option B) (l1 l2 : list A) (l1' l2' : list B) : 
+    try_map f (l1++l2)%list = Some (l1'++l2')%list →  
+    length l1 = length l1' → 
+    try_map f l1 = Some l1' ∧ try_map f l2 = Some l2'.
+  Proof.
+    intros H_map H_len.
+    apply try_map_to_map in H_map. rewrite !map_app in H_map.
+    apply (app_inj_1) in H_map; [| by rewrite !map_length ]. 
+    destruct H_map as [? ?].
+    split; by apply try_map_to_map.
+  Qed.
+
   Lemma byte_chunks_len {a} (l : list a) l'  :
     (8 | length l)%nat → 
     byte_chunks l = Some l' → 
@@ -1369,7 +1410,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       unfold_cap. unfold t, len in *. unfold MachineWord.N_to_word, CAP_TAG_BIT. unfold_cap.
       case_decide as P; try done. simpl.      
       assert (Q: vec_of_bits [@access_vec_dec 64 (bv_zero_extend 64 (vec_of_bits [@access_vec_dec 129 c 128])) 0] = Z_to_bv 1 1).
-      { unfold access_vec_dec, access_mword_dec, MachineWord.get_bit, bitU_of_bool, vec_of_bits, get_word, of_bools, bools_to_mword, MachineWord.bools_to_word, MachineWord.N_to_word; case_match; try done; case_match eqn:H1; try done; simpl.
+      { unfold access_vec_dec, access_mword_dec, MachineWord.get_bit, bitU_of_bool, vec_of_bits, get_word, of_bools, bools_to_mword, MachineWord.bools_to_word, MachineWord.N_to_word; 
+        case_match; try done; case_match eqn:H1; try done; simpl.
         bv_simplify H. change (autocast _) with (Z_to_bv 1 0). 
         apply bv_eq. rewrite !Z_to_bv_unsigned. simpl. 
         bitblast as n. bitblast H with n as H2.
@@ -1396,10 +1438,19 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
   Qed.
   
   Lemma bv_to_bits_to_Z {n} (c : bv n) : 
-    (n>0)%N → 
     Z.of_N (N_of_digits (bv_to_bits c)) = bv_unsigned c.
   Proof.
-    intro H_n_min.
+    destruct ((n=?0)%N) eqn:H_n_0.
+    { apply N.eqb_eq in H_n_0. subst. 
+      have -> : (N_of_digits (bv_to_bits c) = 0)%N.
+      { assert ((N_of_digits (bv_to_bits c) < 2 ^ 0)%N).
+        { replace 0%N with (N.of_nat (base.length (bv_to_bits c)));
+          [ apply MachineWord.N_of_digits_limit 
+          | rewrite bv_to_bits_length; subst; done ]. }
+        lia. }
+      by rewrite bv_unsigned_N_0. }
+    
+    apply N.eqb_neq in H_n_0.
     assert (H: length (bv_to_bits c) = N.to_nat n); [ by rewrite bv_to_bits_length|]. 
     assert (G: (N_of_digits (bv_to_bits c) < 2 ^ (N.of_nat (N.to_nat n)))%N).
     { rewrite <- (bv_to_bits_length (c)). apply MachineWord.N_of_digits_limit. }
@@ -1433,7 +1484,8 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
           by rewrite H1.
       + apply N.ltb_ge in Hbound. rewrite bv_unsigned_spec_high; [ lia |].
         rewrite N.bits_above_log2; try done. 
-        assert ((N_of_digits (bv_to_bits c) < 2 ^ (N.of_nat (length (bv_to_bits c))))%N); [ apply MachineWord.N_of_digits_limit | lia ]. 
+        assert ((N_of_digits (bv_to_bits c) < 2 ^ (N.of_nat (length (bv_to_bits c))))%N); 
+          [ apply MachineWord.N_of_digits_limit | lia ]. 
     - assert (m >= Z.of_N n)%Z; [ lia |]. 
       apply Z.bits_above_log2; try lia.
       assert (H': N_of_digits (bv_to_bits c) = 0%N ∨ (N_of_digits (bv_to_bits c) > 0)%N); [ lia |].
@@ -1445,14 +1497,13 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
           [ apply N.pow_le_mono_r; try lia | lia ]. } 
         apply N2Z.inj_lt in H''.
         replace (Z.of_N (2 ^ Z.to_N m)) with (2 ^ m)%Z in H''.
-        { lia. } { rewrite N2Z.inj_pow. simpl. rewrite Z2N.id; lia. }
-  Qed.
+        { lia. } 
+        { rewrite N2Z.inj_pow. simpl. rewrite Z2N.id; lia. }
+  Qed.    
 
   Lemma mword_of_bits_to_mword_of_bools {n} (c : mword n) : 
-    (n >= 0)%Z → 
     vec_of_bits (bits_of c) = of_bools (mword_to_bools c).
   Proof.
-    intro Hbound.
     unfold bits_of, vec_of_bits.
     rewrite -> map_map.
     set (f := (λ x : bool, bool_of_bit (bitU_of_bool x))).
@@ -1484,13 +1535,93 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     rewrite bv_to_bits_to_Z; try lia. rewrite Z_to_bv_bv_unsigned. 
     by rewrite autocast_refl.
   Qed.
-
-  Lemma bytes_to_bits_to_bytes l l' l'' : 
-    byte_chunks l = Some l' → 
-    try_map memory_byte_to_ascii (rev l') = Some l'' → 
-    map bitU_of_bool (bool_bits_of_bytes (rev l'')) = l.
+  
+  Lemma bit_to_bool_to_bit {n} (w : mword n) b : 
+    b ∈ bits_of w → bitU_of_bool (bool_of_bit b) = b.
   Proof.
-  Admitted.
+    intros H_bits.
+    unfold bits_of, bitU_of_bool in H_bits. 
+    unfold bool_of_bit; case_match; try done.
+    apply elem_of_list_In, In_nth_error in H_bits.
+    destruct H_bits as [m H_bits].
+    apply (nth_error_nth _ _ B0) in H_bits.
+    set (f:=(λ b : bool, if b then B1 else B0)).
+    change (nth m (map (λ b : bool, if b then B1 else B0) (mword_to_bools w)) B0)
+      with (nth m (map f (mword_to_bools w)) B0) in H_bits.
+    change B0 with (f false) in H_bits. 
+    rewrite map_nth in H_bits.
+    destruct (nth m (mword_to_bools w) false) eqn:H_nth; simpl in H_bits; done.
+  Qed.
+
+  Lemma mword_to_bytes_to_bits : 
+    ∀ n (w:mword n) k l l' l'' , 
+      length l = (8*(k+1))%nat → 
+      l = bits_of w → 
+      byte_chunks l = Some l' → 
+      try_map memory_byte_to_ascii (rev l') = Some l'' → 
+      map bitU_of_bool (bool_bits_of_bytes (rev l'')) = l.
+  Proof.
+    intros n w k l l' l'' H_len H_bits. 
+
+    assert (H_b2b: ∀ b, b ∈ l → bitU_of_bool (bool_of_bit b) = b).
+    { intros b H_b. rewrite H_bits in H_b. by apply bit_to_bool_to_bit in H_b. }
+    revert n w k l l' l'' H_bits H_len H_b2b. 
+
+    assert (∀ k l l' l'', 
+      length l = (8*(k+1))%nat → 
+      (∀ b, b ∈ l → bitU_of_bool (bool_of_bit b) = b) → 
+      byte_chunks l = Some l' → 
+      try_map memory_byte_to_ascii (rev l') = Some l'' → 
+      map bitU_of_bool (bool_bits_of_bytes (rev l'')) = l).
+    { induction k as [| k IH].
+      + simpl. intros l1 l2 l3 H_len H_bit H_bytes H_ascii.
+        do 9 (destruct l1; try done).            
+        unfold byte_chunks in H_bytes. inversion H_bytes. subst.
+        simpl in H_ascii. inversion H_ascii. subst. simpl. 
+        rewrite !H_bit;
+          repeat match goal with 
+          | |- ?b ∈ (?b'::_) => apply elem_of_cons
+          | |- ?b = ?b ∨ _ => left; reflexivity
+          | |- _ => right
+          end.
+          reflexivity.         
+      + intros l1 l2 l3 H_len H_bit H_bytes H_ascii.
+        do 8 (destruct l1; try done). 
+        unfold byte_chunks in H_bytes; case_match eqn:H_bchunks; try done; fold (byte_chunks l1) in H_bchunks. 
+        inversion H_bytes as [H_b]; clear H_bytes. 
+        rewrite <- H_b in H_ascii. simpl in H_ascii. 
+        assert (H_l_len: length l1 = (8 * (k + 1))%nat); [ repeat rewrite cons_length in H_len; lia |]. 
+        assert (H_bytes_len: length l = (k + 1)%nat);
+        [ apply byte_chunks_len in H_bchunks; 
+          [| rewrite H_l_len; unfold Nat.divide; exists (k+1)%nat; lia ];
+          rewrite H_l_len in H_bchunks; rewrite H_bchunks Nat.mul_comm Nat.div_mul; lia |]. 
+        assert (H_ascii_len: length l3 = (k+2)%nat);
+        [ apply try_map_length in H_ascii as H_ascii;
+          rewrite app_length rev_length H_bytes_len in H_ascii; simpl in H_ascii; lia |].
+        assert (H_ascii_app: (∃ l4 last, l3 = l4 ++ [last])%list);
+        [ exists (removelast l3), (last l3 "000"%char); rewrite <- app_removelast_last; try done; 
+          intro H'; rewrite H' in H_ascii_len; simpl in H_ascii_len; lia |]. 
+        destruct H_ascii_app as [l4 [last H_ascii_app]]. 
+        subst. 
+        assert (H_ascii_len': base.length (l4) = (k + 1)%nat); [ rewrite last_length in H_ascii_len; lia |]. 
+        apply try_map_app in H_ascii; [| rewrite rev_length; by rewrite H_bytes_len H_ascii_len' ].     
+        destruct H_ascii as [H_ascii_prefix H_ascii_last].
+        apply (IH l1) in H_ascii_prefix; try done. 
+        - rewrite rev_unit map_app H_ascii_prefix.
+          simpl in H_ascii_last. inversion H_ascii_last. simplify_list_eq.
+          rewrite !H_bit;
+            repeat match goal with 
+            | |- ?b ∈ (?b'::?l) => apply elem_of_cons
+            | |- ?b = ?b ∨ _ => left; reflexivity
+            | |- _ => right
+            end.
+            reflexivity.    
+        - intros b' Hb'. apply H_bit.
+          do 8 (apply elem_of_cons; right). assumption.   }   
+    
+    intros ? ? k l l' l'' ?.
+    apply (H k l l' l'').
+  Qed.
 
   Lemma bv_to_bits_app_last (c : bv 129) : 
     bv_to_bits c = (bv_to_bits (bv_extract 0 128 c) ++ [bv_extract 128 1 c =? 1])%list.
@@ -1511,12 +1642,12 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
       rewrite P; bv_simplify; bitblast.
     - assert (Z.of_nat i < 128)%Z. 
       { apply Nat.eqb_neq in Hi2. apply Nat.ltb_ge in Hi1. lia. }
-        unfold l1, l2. rewrite lookup_app_l; [ rewrite bv_to_bits_length; try lia |].
-        destruct (bv_to_bits (bv_extract 0 128 c) !! i) eqn:P.
-        + apply bv_to_bits_lookup_Some. split; try lia.
-          apply bv_to_bits_lookup_Some in P. destruct P as [_ P]. rewrite P.
-          bv_simplify. bitblast.
-        + rewrite list_lookup_lookup_total_lt in P; [ rewrite bv_to_bits_length; try lia | discriminate ].
+      unfold l1, l2. rewrite lookup_app_l; [ rewrite bv_to_bits_length; try lia |].
+      destruct (bv_to_bits (bv_extract 0 128 c) !! i) eqn:P.
+      + apply bv_to_bits_lookup_Some. split; try lia.
+        apply bv_to_bits_lookup_Some in P. destruct P as [_ P]. rewrite P.
+        bv_simplify. bitblast.
+      + rewrite list_lookup_lookup_total_lt in P; [ rewrite bv_to_bits_length; try lia | discriminate ].
   Qed.
 
   Lemma mword_to_bools_cons_last (c: bv 129) :
@@ -1534,9 +1665,14 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     apply cap_encode_length in E as E_len.    
     unfold encode in E. case_match eqn:E1; try done. case_match; try done.
     inversion E; clear E; subst.
-    unfold mem_bytes_of_bits in E1. unfold bytes_of_bits in E1. unfold option_map in E1. case_match eqn:E3; try done.
-    inversion E1; clear E1; subst.
-    apply (bytes_to_bits_to_bytes _ l0 bytes) in E3; try assumption.
+    unfold mem_bytes_of_bits, bytes_of_bits, option_map in E1. 
+    case_match eqn:E3; try done.
+    inversion E1; clear E1; subst. 
+    match goal with 
+    | _: try_map memory_byte_to_ascii (rev ?l) = Some ?bytes
+      |- _ => 
+        apply (mword_to_bytes_to_bits _ (vec_of_bits (list.tail (@bits_of 129 c))) 15 _ l bytes) in E3; try done
+    end.
     unfold t, len in *. 
     change (Z.of_N 129) with 129%Z in *. 
     replace (list.tail (@bits_of 129 c)) with (@bits_of 128 (bv_extract 0 128 c)) in E3;
