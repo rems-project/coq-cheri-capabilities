@@ -14,75 +14,9 @@ From CheriCaps.Common Require Import Utils Addr Capabilities.
 From CheriCaps Require Import CapFns.
 From CheriCaps.Morello Require Import Bv_extensions.
 
-
-(** Notations and their definitions **)
-
-Definition eqb {n} (v1 v2 : bv n) : bool :=
-  v1.(bv_unsigned) =? v2.(bv_unsigned).
-Definition ltb {n} (v1 v2 : bv n) : bool :=
-  v1.(bv_unsigned) <? v2.(bv_unsigned).
-Definition leb {n} (v1 v2 : bv n) : bool := 
-  ltb v1 v2 || eqb v1 v2.
-Definition gtb {n} (v1 v2 : bv n) : bool := 
-  ltb v2 v1.
-Definition geb {n} (v1 v2 : bv n) : bool := 
-  gtb v1 v2 || eqb v1 v2.
-
 Local Close Scope Z_scope.
 Local Open Scope bv_scope.
 
-Local Notation "x =? y" := (eqb x y) (at level 70, no associativity) : bv_scope.
-Local Notation "x <? y" := (ltb x y) (at level 70, no associativity) : bv_scope.
-Local Notation "x <=? y" := (leb x y) (at level 70, no associativity) : bv_scope.
-Local Notation "x >? y" := (gtb x y) (at level 70, no associativity) : bv_scope.
-Local Notation "x >=? y" := (geb x y) (at level 70, no associativity) : bv_scope.
-
-Local Notation "(<@{ A } )" := (@lt A) (only parsing) : stdpp_scope.
-Local Notation LtDecision A := (RelDecision (<@{A})).
-
-(** Utility converters and lemmas **)
-
-Definition bv_to_Z_unsigned {n} (v : bv n) : Z := v.(bv_unsigned).
-Definition bv_to_N {n}  (v : bv n) : N := Z.to_N v.(bv_unsigned).
-Definition bv_to_bv {n} {m : N} (v : bv n) : (bv m) :=
-  Z_to_bv m (bv_to_Z_unsigned v).
-Definition bv_to_list_bool {n} (v : bv n) : list bool := bv_to_bits v. 
-
-Definition mword_to_bv {n} : mword n -> bv (N.of_nat (Z.to_nat n)) := 
-  fun x => get_word x.
-
-Definition bv_to_mword {n} : bv (N.of_nat (Z.to_nat n)) -> mword n :=
-  match n with
-  | Zneg _ => fun _ => zeros _
-  | Z0 => fun w => w
-  | Zpos _ => fun w => w
-  end.
-Definition bv_to_mword' {n} : bv (N.of_nat (Z.to_nat n)) -> mword n := 
-  fun w => to_word w.
-  
-Definition invert_bits {n} (m : mword n) : (mword n) :=
-  let l : list bool := mword_to_bools m in 
-  let l := map negb l in 
-  let x : mword (Z.of_nat (base.length l)) := of_bools l in
-  let x : Z := int_of_mword false x in 
-  mword_of_int x.
-
-Lemma bv_eqb_eq {n} : forall (a b: bv n), (a =? b) = true <-> a = b.
-Proof.
-  split.
-  - intro H. unfold Capabilities.eqb in H. 
-    apply Z.eqb_eq in H. apply bv_eq in H. exact H.
-  - intro H. rewrite H. unfold Capabilities.eqb. lia.
-Defined.  
-
-Lemma bv1_neqb_eq0 : forall (a : bv 1), (a =? 1%bv) = false <-> a = 0%bv.
-Proof.
-  intros. split.
-  + intro H. unfold eqb in H. apply Z.eqb_neq in H. apply bv_eq.     
-    assert (P: (0 ≤ bv_unsigned a < 2)%Z); [ apply (bv_unsigned_in_range 1 a) |].
-    change (bv_unsigned 0) with 0%Z. change (bv_unsigned 1) with 1%Z in H. lia.
-  + intro H. rewrite H. done.
-Qed.
 
 (* Permissions bits are represented in the same order of significance as in the full capability (eg, 1%bv encodes the Global permission) *)
 Module Permissions <: PERMISSIONS.
@@ -277,14 +211,14 @@ Module AddressValue <: PTRADDR.
     
   Definition bitwise_complement (a:t) : t := bv_not a.
     
-  Definition eqb (v1:t) (v2:t) : bool := Capabilities.eqb v1 v2.
-  Definition ltb (v1:t) (v2:t) : bool := Capabilities.ltb v1 v2.
-  Definition leb (v1:t) (v2:t) : bool := Capabilities.leb v1 v2.
+  Definition eqb (v1:t) (v2:t) : bool := Utils.eqb v1 v2.
+  Definition ltb (v1:t) (v2:t) : bool := Utils.ltb v1 v2.
+  Definition leb (v1:t) (v2:t) : bool := Utils.leb v1 v2.
 
   Definition to_string (v:t) : string := HexString.of_Z (bv_to_Z_unsigned v).
 
   Lemma ltb_irref: forall a:t, ltb a a = false.
-  Proof. intros. unfold ltb. unfold Capabilities.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
+  Proof. intros. unfold ltb. unfold Utils.ltb. rewrite Z.ltb_irrefl. reflexivity. Qed. 
 
   Global Instance morello_address_eq_dec : EqDecision t.
   Proof. unfold t. apply bv_eq_dec. Defined.
@@ -352,6 +286,7 @@ Module AddressValue <: PTRADDR.
 
 End AddressValue.
 
+
 (** [OrderedType] for [AddressValue.t] is useful, for example, to use it
     as a key in [FMapAVL] *)
 Module AddressValue_as_OT <: UsualOrderedType.
@@ -398,7 +333,6 @@ Module AddressValue_as_OT <: UsualOrderedType.
       apply Z.compare_eq in H.
       generalize dependent bv_is_wf0.
       generalize dependent bv_is_wf.
-      Set Printing Implicit.
       rewrite H.
       intros bv_is_wf bv_is_wf0.
       f_equiv.
@@ -409,6 +343,7 @@ Module AddressValue_as_OT <: UsualOrderedType.
   Defined.
 
 End AddressValue_as_OT.
+
 
 Module ObjType <: OTYPE.
 
@@ -834,20 +769,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     | _ => None
     end.
 
-  Fixpoint try_map {A B:Type} (f : A -> option B) (l:list A) : option (list B) :=
-    match l with
-    | [] => Some []
-    | a :: t =>
-        match f a with
-        | Some b =>
-            match try_map f t with
-            | Some bs =>  Some (b :: bs)
-            | None => None
-            end
-        | None => None
-        end
-    end.
-
   Definition encode (c : t) : option ((list ascii) * bool) :=
     let tag : bool := cap_is_valid c in 
     let c : (mword (Z.of_N len)) := c in  
@@ -969,10 +890,10 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 
   Lemma eqb_value_compare: forall (a b : t), eqb a b = true -> value_compare a b = Eq.
   Proof. intros. unfold eqb in H. assert (P: a = b). (* or just apply Lemma eqb_cap_value_compare *)
-    { unfold eqb_cap in H. unfold Capabilities.eqb in H. rewrite -> Z.eqb_eq in H. 
+    { unfold eqb_cap in H. unfold Utils.eqb in H. rewrite -> Z.eqb_eq in H. 
       apply bv_eq. apply H. }
     unfold value_compare. unfold cap_get_value.
-    rewrite <- P. unfold Capabilities.eqb.
+    rewrite <- P. unfold Utils.eqb.
     rewrite Z.eqb_refl. reflexivity. Qed.
     
   (* Lemma for eqb on capabilities directly without the ghoststate record.
@@ -995,7 +916,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         
   Lemma eqb_refl: forall (a:t), eqb a a = true.
   Proof.
-    intros. unfold eqb; unfold eqb_cap; unfold Capabilities.eqb. apply Z.eqb_eq. reflexivity.
+    intros. unfold eqb; unfold eqb_cap; unfold Utils.eqb. apply Z.eqb_eq. reflexivity.
   Qed.
 
   Lemma eqb_eq : forall (a b:t), (a =? b) = true <-> a = b.
@@ -1234,107 +1155,6 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     destruct (cap_is_valid c && cap_is_unsealed c).
     { unfold_cap. bitblast. }
     { fold (cap_get_value c). fold (cap_get_value (cap_invalidate (cap_set_objtype c ot))). rewrite <- cap_invalidate_preserves_value. unfold_cap. bitblast. }
-  Qed.
-
-  Fact try_map_length
-    {A B:Type}
-    (f : A -> option B) (l:list A)
-    (l':list B):
-    try_map f l = Some l' -> length l = length l'.
-  Proof.
-    intros H.
-    revert l' H.
-    induction l.
-    - intros l' H.
-      cbn in *.
-      inversion H.
-      reflexivity.
-    - intros l' H.
-      cbn in *.
-      destruct (f a) eqn:Hfa; [| inversion H].
-      destruct (try_map f l) eqn:Htry; [| inversion H].
-      destruct l' as [| l0' l']; inversion H.
-      subst.
-      cbn.
-      f_equal.
-      apply IHl.
-      reflexivity.
-  Qed.
-
-  Lemma try_map_to_map {A B:Type} (f : A -> option B) (l : list A) (l' : list B) : 
-    try_map f l = Some l' ↔  
-    map f l = map Some l'.
-  Proof. 
-    revert l l'. 
-    assert (H: ∀ n l l', length l = n → try_map f l = Some l' ↔ map f l = map Some l').
-    { induction n as [| m IH].
-      + intros l l' H_len. apply nil_length_inv in H_len. 
-        subst. simpl. split; intro H. 
-        - inversion H. subst. reflexivity.
-        - symmetry in H. apply map_eq_nil in H. subst. reflexivity. 
-      + intros l l' H_len. destruct l as [| h t ] eqn:H_l; [ done |].
-        split; intro H; rewrite cons_length in H_len; apply eq_add_S in H_len.
-        - simpl in H. case_match eqn:H_h; try done. case_match eqn:H_t; try done.
-          match goal with 
-          | _: try_map _ ?t = Some ?l
-            |- _ 
-              => apply (IH t l H_len) in H_t
-          end.    
-          simpl. inversion H as [H']. 
-          rewrite H_h H_t. reflexivity.
-        - simpl. simpl in H. 
-          assert (H_len': length l' = S m). 
-          { rewrite <- (map_length f) in H_len. rewrite <- H_len. 
-            rewrite <- (cons_length (f h)). rewrite H. by rewrite map_length. }          
-          destruct l' as [|h' t'] eqn:H_l'; [ done |].   
-          case_match eqn:H_h; try done. case_match eqn:H_t. 
-          * apply f_equal. subst. 
-            apply (IH t) in H_t; try done. rewrite H_t in H. rewrite <- map_cons in H.
-            by simplify_list_eq. 
-          * subst. simpl in H. 
-            apply (app_inj_2 [Some b] [Some h']) in H;
-            [| rewrite !map_length; rewrite cons_length in H_len'; lia ].  
-            destruct H as [_ H].
-            apply (IH t) in H; [| reflexivity ]. rewrite H in H_t. done.  
-    } 
-    intros l l'. by apply (H (length l) l l').
-  Qed.
-
-  Lemma try_map_app {A B:Type} (f : A -> option B) (l1 l2 : list A) (l1' l2' : list B) : 
-    try_map f (l1++l2)%list = Some (l1'++l2')%list →  
-    length l1 = length l1' → 
-    try_map f l1 = Some l1' ∧ try_map f l2 = Some l2'.
-  Proof.
-    intros H_map H_len.
-    apply try_map_to_map in H_map. rewrite !map_app in H_map.
-    apply (app_inj_1) in H_map; [| by rewrite !map_length ]. 
-    destruct H_map as [? ?].
-    split; by apply try_map_to_map.
-  Qed.
-
-  Lemma byte_chunks_len {a} (l : list a) l'  :
-    (8 | length l)%nat → 
-    byte_chunks l = Some l' → 
-    length l' = ((length l)/8)%nat.
-  Proof.
-    intro Hdiv. unfold Nat.divide in Hdiv. destruct Hdiv as [q Hdiv].
-
-    assert (P: ∀ q (l : list a) l', length l = (q*8)%nat → byte_chunks l = Some l' → length l' = q).
-    { intro q'. induction q' as [| n IH].
-      { intros l0 l0' Hlen Hbytes. simpl in Hlen. apply nil_length_inv in Hlen. subst.
-        simpl in Hbytes. injection Hbytes. intros. subst. done. }
-      { intros l0 l0' Hlen Hbytes. unfold byte_chunks in Hbytes.
-        destruct l0 eqn:E; [ done |].
-        repeat case_match; try done. 
-        assert (Hlensub: length l8 = (n*8)%nat).
-        { repeat rewrite cons_length in Hlen. simpl in Hlen. lia. }
-          specialize IH with (l:=l8) (l':=l9). 
-          apply IH in Hlensub; [| done]. 
-          injection Hbytes. intro H'.
-          rewrite <- H'. rewrite cons_length. lia. } }
-    
-    intro Hbytes. specialize P with (l:=l). apply P; try done.
-    rewrite Hdiv. rewrite Nat.div_mul; lia.    
   Qed.
 
   Lemma mword_to_bools_len {n} (w : mword n) :
