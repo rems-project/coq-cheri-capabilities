@@ -2,4 +2,6 @@
 
 -R theories CheriCaps
 
+theories
+
 -Q _build/default/theories CheriCaps
