@@ -1,7 +1,6 @@
-# This file is used by Coq IDEs (eg, VS Code with the VsCoq extension) 
 
 -R theories CheriCaps
 
 theories
 
--Q _build/default/theories CheriCaps
+# -Q _build/default/theories CheriCaps
