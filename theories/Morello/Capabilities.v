@@ -6,9 +6,9 @@ Require Import Coq.Strings.HexString.
 From Coq.Structures Require Import OrderedType OrderedTypeEx.
 From Coq Require Import ssreflect.
 
-From stdpp Require Import bitvector bitblast bitvector_tactics.
-
 From SailStdpp Require Import Base Values Values_lemmas Operators_mwords MachineWord Operators_mwords MachineWordInterface.
+
+From stdpp Require Import bitvector bitblast bitvector_tactics list_numbers.
 
 From CheriCaps.Common Require Import Utils Addr Capabilities.
 From CheriCaps Require Import CapFns.
@@ -820,6 +820,21 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
 
   Definition eqb (cap1:t) (cap2:t) : bool := eqb_cap cap1 cap2.
 
+  Definition leq_bounds (c1 c2 : t) : bool :=
+    let (base1,top1) := cap_get_bounds c1 in 
+    let (base2,top2) := cap_get_bounds c2 in 
+    ((base1.(bv_unsigned) =? base2.(bv_unsigned))%Z && (top1.(bv_unsigned) =? top2.(bv_unsigned))%Z) ||
+    (bounds_contained c1 c2 && (base1.(bv_unsigned) <=? (top1.(bv_unsigned)))%Z).
+
+  (* If both caps are tagged and sealed but otherwise different, then leq_cap is false in both directions.  *)
+  Definition leq_cap (c1 c2 : t) : bool :=
+    (eqb c1 c2) || 
+    (cap_is_invalid c1) || 
+      ((cap_is_valid c2) && 
+        (cap_is_unsealed c1 && cap_is_unsealed c2) && 
+        (leq_bounds c1 c2) && 
+        (leq_perms c1 c2)).
+      
   Definition is_sentry (c:t) : bool :=
     match cap_get_seal c with
     | SealType.Cap_SEntry => true
@@ -839,6 +854,24 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     | SealType.Cap_Indirect_SEntry_Pair => Some SealType.Cap_Indirect_SEntry_Pair
     | _                                 => None 
     end.
+  
+  Definition cap_aligned (b : Z) := (0 =? b `mod` 16)%Z.
+  
+  Definition cap_align (b : Z) := (b - (b `mod` 16))%Z.
+
+  Definition cap_all_addresses (c : t) : list Z :=
+    let (base, limit) := cap_get_bounds c in
+    seqZ (cap_align (bv_unsigned base)) (bv_unsigned limit - cap_align (bv_unsigned base)).
+
+  Definition cap_aligned_addresses (c : t) :=
+    filter cap_aligned (cap_all_addresses c).
+
+  Definition cap_addresses (c : t) : list Z :=
+    let (base, limit) := cap_get_bounds c in
+    seqZ (bv_unsigned base) (bv_unsigned limit - bv_unsigned base).
+  
+  Definition access_in_bounds (c : t) (a : bv 64) (sz : Z) :=
+    seqZ (bv_unsigned a) sz ⊆ cap_addresses c.    
 
   Definition flags_as_str (c:t): string :=
     let attrs : list string :=
@@ -989,7 +1022,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     assert (Hp: (hi < 128)%Z); [ apply Is_true_eq_true in H; lia |].
     unfold subrange_vec_dec, CapWithTagClear, CapSetTag, CAP_TAG_BIT, autocast. 
     simpl. bv_simplify.
-    destruct (Z.eq_dec _ _); [| reflexivity].
+    case_match; [| reflexivity].
     unfold MachineWord.slice, MachineWord.zero_extend, MachineWord.N_to_word. simpl.
     change (Bit (vec_of_bits [access_vec_dec _ 0])) with B0.
     unfold update_vec_dec, update_mword_dec. simpl. 
@@ -1419,7 +1452,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
         [ apply try_map_length in H_ascii as H_ascii;
           rewrite app_length rev_length H_bytes_len in H_ascii; simpl in H_ascii; lia |].
         assert (H_ascii_app: (∃ l4 last, l3 = l4 ++ [last])%list);
-        [ exists (removelast l3), (last l3 "000"%char); rewrite <- app_removelast_last; try done; 
+        [ exists (removelast l3), (List.last l3 "000"%char); rewrite <- app_removelast_last; try done; 
           intro H'; rewrite H' in H_ascii_len; simpl in H_ascii_len; lia |]. 
         destruct H_ascii_app as [l4 [last H_ascii_app]]. 
         subst. 
