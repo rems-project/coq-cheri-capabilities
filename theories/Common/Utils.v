@@ -319,3 +319,14 @@ Proof.
   rewrite H0 H1.
   apply string_eq_refl.
 Qed.
+
+Lemma Z_eqb_is_eq (x y : Z) :
+  (x =? y ↔ x = y)%Z.
+Proof.
+  split.
+  + intros.
+    apply Z.eqb_eq.
+    by apply Is_true_eq_true.
+  + intros ->.
+    by rewrite Z.eqb_refl.
+Qed.
