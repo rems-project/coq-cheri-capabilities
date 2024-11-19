@@ -3,10 +3,20 @@ From SailStdpp Require Import Base Values Values_lemmas Operators_mwords Machine
 From stdpp Require Import list_numbers bitvector bitvector_tactics bitblast.
 
 From CheriCaps.Common Require Import Utils.
-From CheriCaps.Morello Require Import CapFns Bv_extensions Capabilities.
+From CheriCaps.Morello Require Import CapFns Capabilities.
 
 (** More automation for modular arithmetics. *)
 Ltac Zify.zify_post_hook ::= Z.to_euclidean_division_equations.
+
+Local Ltac reduce_closed_N_tac ::=
+  repeat match goal with
+  | |- context [bv ?n] => progress reduce_closed (bv n)
+  | H : context [bv ?n] |- _ => progress reduce_closed (bv n)
+  | |- context [MachineWord.MachineWord.word ?n] => progress reduce_closed (MachineWord.MachineWord.word n)
+  | H : context [MachineWord.MachineWord.word ?n] |- _ => progress reduce_closed (MachineWord.MachineWord.word n)
+  | |- context [N.of_nat ?n] => progress reduce_closed (N.of_nat n)
+  | H : context [N.of_nat ?n] |- _ => progress reduce_closed (N.of_nat n)
+  end.
 
 Section mword_lemmas.
   Open Scope Z.
@@ -88,27 +98,11 @@ Section Cap_translation_lemmas.
     Capability.cap_permits_store c →  
     bv_and c (BV 129 (2^126)) = BV 129 (2^126).
   Proof. 
-    Capability.unfold_cap. unfold Capability.t, Capability.len in c.
-    intro H. case_decide; [| done ]. repeat bv_simplify.    
-    apply bv_eq_wrap in H0. bv_simplify H0. 
-    change (N.of_nat (Z.to_nat (127 - 110 + 1 - 1 - 0 + 1))) with 18%N in H0. replace (bv_wrap 18
-    (Z.land
-       (bv_wrap 18
-          (@bv_unsigned 64
-             (@bv_zero_extend (N.of_nat (Z.to_nat 18)) 64 (@bv_extract 129 110 18 c))))
-       (bv_wrap 18 (1 ≪ 16)))) with (bv_wrap 18 (Z.land (bv_wrap 18 (@bv_unsigned 129 c ≫ Z.of_N 110)) (bv_wrap 18 (1 ≪ 16)))) in H0.
-    2:{ change (Z.of_N 110) with 110%Z. 
-        change (N.of_nat (Z.to_nat 18)) with 18%N. 
-        bv_simp_r. 
-        replace (bv_wrap 18 (@bv_unsigned 18 (@bv_extract 129 110 18 c))) with (bv_wrap 18 (bv_unsigned c ≫ 110)).
-        2:{ bv_simp_r. bitblast. }
-    bitblast. } 
-    rewrite <- (@Z.mul_cancel_r _ _ (2^110) ) in H0; [| lia].
-    rewrite <- (@Z.shiftl_mul_pow2 _ 110) in H0; [| lia].
-    rewrite <- (@Z.shiftl_mul_pow2 _ 110) in H0; [| lia].  
-    bitblast as m.
-    bitblast H0 with m as H1.
-    exact H1.
+    Capability.unfold_cap. unfold Capability.t, Capability.len in *.
+    intro H. case_decide as H0; [| done ]. bv_simplify.    
+    bv_simplify H0. 
+    bitblast as n.
+    by bitblast H0 with (n - 110).
   Qed.
 
   Lemma cap_permits_load_bv_and (c:Capability.t) : 
@@ -116,17 +110,10 @@ Section Cap_translation_lemmas.
     bv_and c (BV 129 (2^127)) = BV 129 (2^127).
   Proof. 
     Capability.unfold_cap. unfold Capability.t, Capability.len in c.
-    intro H. case_decide; [| done ]. bv_simp_r.   
-    apply bv_eq_wrap in H0. bv_simplify H0. 
-    change (N.of_nat (Z.to_nat (127 - 110 + 1 - 1 - 0 + 1))) with 18%N in H0.
-    rewrite <- (@Z.mul_cancel_r _ _ (2^110) ) in H0; [| lia].
-    rewrite <- (@Z.shiftl_mul_pow2 _ 110) in H0; [| lia].
-    rewrite <- (@Z.shiftl_mul_pow2 _ 110) in H0; [| lia].  
-    bitblast as m. 
-    bitblast H0 with m as H1.
-    rewrite <- H1. change (N.of_nat (Z.to_nat 18)) with 18%N.
-    bv_simp_r. 
-    bitblast.
+    intro H. case_decide as H0; [| done ]. bv_simplify.   
+    bv_simplify H0.
+    bitblast as n.
+    by bitblast H0 with (n - 110).
   Qed.
 
   Lemma cap_is_unsealed_eq_vec (c : Capability.t ): 
