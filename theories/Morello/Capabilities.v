@@ -12,7 +12,6 @@ From stdpp Require Import bitvector bitblast bitvector_tactics list_numbers.
 
 From CheriCaps.Common Require Import Utils Addr Capabilities.
 From CheriCaps Require Import CapFns.
-From CheriCaps.Morello Require Import Bv_extensions.
 
 Local Close Scope Z_scope.
 Local Open Scope bv_scope.
@@ -1060,7 +1059,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     unfold cap_is_valid, CapFns.CapIsTagClear, CapFns.CapGetTag, CapFns.CAP_TAG_BIT. unfold Operators_mwords.access_vec_dec. simpl. unfold Values.access_mword_dec. unfold get_word, MachineWord.get_bit.
     simpl_arith_r.
     destruct (Z.testbit (@bv_unsigned 129 c) 128) eqn:U.
-    + intros. bv_simplify. unfold len. bv_simplify. bitblast as m. replace m with 128%Z; [ assumption | lia ].
+    + intros. unfold t, len in *. bv_simplify. bitblast as m. replace m with 128%Z; [ assumption | lia ].
     + done.
     Qed.
     
@@ -1069,24 +1068,14 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     bv_and c (BV 129 0x3FFF800000000000000000000000) = BV 129 0.
   Proof.
     unfold_cap.
+    unfold MachineWord.word.
+    unfold t, len in c.
     simpl_arith_r.
     intro H.
-    case_decide.
-    - apply bv_eq_wrap. unfold len. bv_simplify.
+    case_decide as EQ.
+    - bv_simplify. bv_simplify EQ.
       bitblast as n.
-      apply bv_eq_wrap in H0. 
-      simpl_arith_r.
-      repeat bv_simplify H0.      
-      replace (bv_wrap 64 (bv_unsigned _)) with  (bv_unsigned (bv_extract 95 15 c)) in H0; [|  bv_simp_r; bitblast].
-      rewrite <- (@Z.mul_cancel_r _ _ (2^95)) in H0; [| lia].
-      rewrite <- (@Z.shiftl_mul_pow2 _ 95) in H0; [| lia].
-      change (bv_wrap 64 0 * 2 ^ 95)%Z with 0%Z in H0.
-      bitblast H0 with n as H1.
-      rewrite bv_extract_unsigned in H1.
-      rewrite bv_wrap_spec_low in H1; [ lia |].
-      rewrite Z.shiftr_spec in H1; [ lia |]. 
-      simpl_arith_r.
-      rewrite <- H1. apply f_equal. lia.
+      by bitblast EQ with (n - 95)%Z.
     - done. 
     Qed.  
 
@@ -1096,22 +1085,14 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     bv_and c (BV 129 0x100003FFF800000000000000000000000) =
     BV 129 (2^128).
   Proof. 
-    intros Htag Hotype. apply cap_is_valid_bv_and in Htag. apply cap_is_unsealed_bv_and in Hotype. bv_simp_r.
-    bv_simp_r Htag. bv_simp_r Hotype. unfold len. 
+    intros Htag Hotype. apply cap_is_valid_bv_and in Htag. apply cap_is_unsealed_bv_and in Hotype. bv_simplify.
+    unfold t, len in *.
+    bv_simplify Htag. bv_simplify Hotype.
+    bv_simplify.
     bitblast as n. 
-    change (bv_unsigned (BV 129 (2 ^ 128))) with (2 ^ 128)%Z in *. 
-    change (bv_unsigned 0) with 0%Z in Hotype.
-    bitblast Htag with n as Htag'. bitblast Hotype with n as Hotype'. 
-    case_bool_decide.
-    - replace n with 128%Z in *; [ | lia ]. done. 
-    - assert (Hn: (n < Z.of_N 128)%Z); [ lia |]. 
-      replace (Z.testbit (2 ^ 128) n) with false.
-      { replace (Z.testbit (bv_unsigned (BV 129 340283664955539015913149571259078541312)) n) with (Z.testbit (bv_unsigned (BV 129 1298034600552449774963827310329856)) n); 
-      [ | replace (bv_unsigned 1298034600552449774963827310329856) with 1298034600552449774963827310329856%Z; 
-      [ replace (bv_unsigned 340283664955539015913149571259078541312) with 340283664955539015913149571259078541312%Z; [ bitblast | bv_solve ] | bv_solve ] ].
-      exact Hotype'. }
-      { rewrite Z.pow2_bits_false; [ lia | reflexivity ]. }    
-    Qed.
+    - by bitblast Hotype with n.
+    - by bitblast Htag with n.
+  Qed.
 
   Lemma cap_is_unsealed_eq_vec (c : t ): 
     cap_is_unsealed c <-> Operators_mwords.eq_vec (CapFns.CapGetObjectType c) (MachineWord.MachineWord.zeros (Pos.to_nat (63 + 1))) = true.
@@ -1185,6 +1166,7 @@ Module Capability <: CAPABILITY (AddressValue) (Flags) (ObjType) (SealType) (Bou
     cap_get_value c = cap_get_value (cap_seal_immediate c ot).
   Proof.
     unfold cap_seal_immediate, cap_get_value.
+    unfold t, len in c.
     destruct (cap_is_valid c && cap_is_unsealed c).
     { unfold_cap. bitblast. }
     { fold (cap_get_value c). fold (cap_get_value (cap_invalidate (cap_set_objtype c ot))). rewrite <- cap_invalidate_preserves_value. unfold_cap. bitblast. }
